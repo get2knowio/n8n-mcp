@@ -15,6 +15,7 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Tags CRUD**: Create, read, update, and delete tags with pagination support
 
 ## Installation
 
@@ -78,10 +79,19 @@ npm run cli delete 1
 # Activate/deactivate workflows
 npm run cli activate 1
 npm run cli deactivate 1
+
+# Tag commands
+npm run cli tags list
+npm run cli tags list 10
+npm run cli tags get 1
+npm run cli tags create "My Tag" "#ff0000"
+npm run cli tags update 1 "Updated Tag" "#00ff00"
+npm run cli tags delete 1
 ```
 
 ### Available Tools
 
+**Workflow Tools:**
 1. **list_workflows** - List all workflows
 2. **get_workflow** - Get workflow by ID
 3. **create_workflow** - Create a new workflow
@@ -89,6 +99,13 @@ npm run cli deactivate 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
+
+**Tag Tools:**
+8. **list_tags** - List all tags with optional pagination
+9. **get_tag** - Get tag by ID
+10. **create_tag** - Create a new tag
+11. **update_tag** - Update existing tag
+12. **delete_tag** - Delete a tag
 
 ## Example Workflow Creation
 
@@ -113,6 +130,35 @@ npm run cli deactivate 1
   "tags": ["example"]
 }
 ```
+
+## Tag Management
+
+Tags are used to organize and group workflows in n8n. The MCP server provides comprehensive tag management capabilities:
+
+### Tag Operations
+
+- **List Tags**: Get all tags with optional pagination
+- **Get Tag**: Retrieve a specific tag by ID
+- **Create Tag**: Create a new tag with name and optional color
+- **Update Tag**: Modify tag name and/or color
+- **Delete Tag**: Remove a tag
+
+### Tag Examples
+
+```json
+{
+  "id": 1,
+  "name": "Production",
+  "color": "#ff0000",
+  "createdAt": "2023-01-01T00:00:00.000Z",
+  "updatedAt": "2023-01-01T00:00:00.000Z"
+}
+```
+
+The tag API supports:
+- **Pagination**: Use `limit` and `cursor` parameters when listing tags
+- **Color Support**: Optional hex color codes for visual organization
+- **Error Handling**: Proper 409 responses for duplicate names, 404 for missing tags
 
 ## Development
 

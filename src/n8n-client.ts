@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse } from './types.js';
+import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nTag, N8nTagsListResponse } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
@@ -53,5 +53,37 @@ export class N8nClient {
   async deactivateWorkflow(id: number): Promise<N8nWorkflow> {
     const response = await this.api.post<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}/deactivate`);
     return response.data.data;
+  }
+
+  // Tags API methods
+  async listTags(limit?: number, cursor?: string): Promise<N8nTagsListResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/tags?${queryString}` : '/tags';
+    
+    const response = await this.api.get<N8nTagsListResponse>(url);
+    return response.data;
+  }
+
+  async getTag(id: number): Promise<N8nTag> {
+    const response = await this.api.get<N8nApiResponse<N8nTag>>(`/tags/${id}`);
+    return response.data.data;
+  }
+
+  async createTag(tag: Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>): Promise<N8nTag> {
+    const response = await this.api.post<N8nApiResponse<N8nTag>>('/tags', tag);
+    return response.data.data;
+  }
+
+  async updateTag(id: number, tag: Partial<Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>>): Promise<N8nTag> {
+    const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, tag);
+    return response.data.data;
+  }
+
+  async deleteTag(id: number): Promise<void> {
+    await this.api.delete(`/tags/${id}`);
   }
 }

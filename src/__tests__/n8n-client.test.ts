@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow } from '../types';
+import { N8nConfig, N8nWorkflow, N8nTag } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -35,6 +35,14 @@ describe('N8nClient', () => {
     tags: ['test']
   };
 
+  const mockTag: N8nTag = {
+    id: 1,
+    name: 'Test Tag',
+    color: '#ff0000',
+    createdAt: '2023-01-01T00:00:00.000Z',
+    updatedAt: '2023-01-01T00:00:00.000Z'
+  };
+
   beforeEach(() => {
     mockApi = {
       defaults: {
@@ -46,6 +54,7 @@ describe('N8nClient', () => {
       post: jest.fn(),
       patch: jest.fn(),
       delete: jest.fn(),
+      put: jest.fn(),
     };
 
     mockedAxios.create.mockReturnValue(mockApi);
@@ -243,6 +252,175 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('listTags', () => {
+    it('should return list of tags', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockTag],
+          nextCursor: undefined
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listTags();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/tags');
+      expect(result).toEqual({
+        data: [mockTag],
+        nextCursor: undefined
+      });
+    });
+
+    it('should handle pagination parameters', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockTag],
+          nextCursor: 'next-cursor'
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listTags(10, 'cursor-123');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/tags?limit=10&cursor=cursor-123');
+      expect(result).toEqual({
+        data: [mockTag],
+        nextCursor: 'next-cursor'
+      });
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('API Error');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.listTags()).rejects.toThrow('API Error');
+    });
+  });
+
+  describe('getTag', () => {
+    it('should return specific tag by ID', async () => {
+      const mockResponse = {
+        data: {
+          data: mockTag
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.getTag(1);
+
+      expect(mockApi.get).toHaveBeenCalledWith('/tags/1');
+      expect(result).toEqual(mockTag);
+    });
+
+    it('should handle tag not found', async () => {
+      const error = new Error('Tag not found');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.getTag(999)).rejects.toThrow('Tag not found');
+    });
+  });
+
+  describe('createTag', () => {
+    it('should create a new tag', async () => {
+      const newTag = { name: 'New Tag', color: '#00ff00' };
+      const mockResponse = {
+        data: {
+          data: { ...mockTag, ...newTag }
+        }
+      };
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await client.createTag(newTag);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tags', newTag);
+      expect(result).toEqual({ ...mockTag, ...newTag });
+    });
+
+    it('should create tag without color', async () => {
+      const newTag = { name: 'No Color Tag' };
+      const mockResponse = {
+        data: {
+          data: { ...mockTag, ...newTag, color: undefined }
+        }
+      };
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await client.createTag(newTag);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/tags', newTag);
+      expect(result).toEqual({ ...mockTag, ...newTag, color: undefined });
+    });
+
+    it('should handle creation errors', async () => {
+      const newTag = { name: 'Duplicate Tag' };
+      const error = new Error('Tag name already exists');
+      mockApi.post.mockRejectedValue(error);
+
+      await expect(client.createTag(newTag)).rejects.toThrow('Tag name already exists');
+    });
+  });
+
+  describe('updateTag', () => {
+    it('should update an existing tag', async () => {
+      const updateData = { name: 'Updated Tag' };
+      const updatedTag = { ...mockTag, ...updateData };
+      
+      const mockResponse = {
+        data: {
+          data: updatedTag
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.updateTag(1, updateData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/tags/1', updateData);
+      expect(result).toEqual(updatedTag);
+    });
+
+    it('should update tag color only', async () => {
+      const updateData = { color: '#0000ff' };
+      const updatedTag = { ...mockTag, ...updateData };
+      
+      const mockResponse = {
+        data: {
+          data: updatedTag
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.updateTag(1, updateData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/tags/1', updateData);
+      expect(result).toEqual(updatedTag);
+    });
+
+    it('should handle update errors', async () => {
+      const updateData = { name: 'Updated Tag' };
+      const error = new Error('Update failed');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.updateTag(1, updateData)).rejects.toThrow('Update failed');
+    });
+  });
+
+  describe('deleteTag', () => {
+    it('should delete a tag', async () => {
+      mockApi.delete.mockResolvedValue({});
+
+      await client.deleteTag(1);
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/tags/1');
+    });
+
+    it('should handle deletion errors', async () => {
+      const error = new Error('Deletion failed');
+      mockApi.delete.mockRejectedValue(error);
+
+      await expect(client.deleteTag(1)).rejects.toThrow('Deletion failed');
     });
   });
 });
