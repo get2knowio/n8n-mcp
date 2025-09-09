@@ -18,6 +18,15 @@ Commands:
   delete <id>            Delete workflow by ID
   activate <id>          Activate workflow
   deactivate <id>        Deactivate workflow
+  
+  executions list [options]              List executions
+  executions get <id>                    Get execution by ID
+  executions delete <id>                 Delete execution by ID
+
+Options for executions list:
+  --limit <number>       Maximum number of executions to return
+  --cursor <string>      Cursor for pagination
+  --workflow-id <id>     Filter by workflow ID
 
 Environment variables:
   N8N_BASE_URL           n8n instance URL (default: http://localhost:5678)
@@ -94,6 +103,61 @@ Environment variables:
         }
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
+        break;
+
+      case 'executions':
+        const subCommand = args[1];
+        if (!subCommand) {
+          console.error('Error: Executions subcommand required (list, get, delete)');
+          process.exit(1);
+        }
+
+        switch (subCommand) {
+          case 'list':
+            const listOptions: { limit?: number; cursor?: string; workflowId?: string } = {};
+            
+            // Parse options
+            for (let i = 2; i < args.length; i++) {
+              if (args[i] === '--limit' && args[i + 1]) {
+                listOptions.limit = parseInt(args[i + 1]);
+                i++;
+              } else if (args[i] === '--cursor' && args[i + 1]) {
+                listOptions.cursor = args[i + 1];
+                i++;
+              } else if (args[i] === '--workflow-id' && args[i + 1]) {
+                listOptions.workflowId = args[i + 1];
+                i++;
+              }
+            }
+
+            const executions = await client.listExecutions(listOptions);
+            console.log(JSON.stringify(executions, null, 2));
+            break;
+
+          case 'get':
+            const executionId = args[2];
+            if (!executionId) {
+              console.error('Error: Execution ID required');
+              process.exit(1);
+            }
+            const execution = await client.getExecution(executionId);
+            console.log(JSON.stringify(execution, null, 2));
+            break;
+
+          case 'delete':
+            const deleteExecutionId = args[2];
+            if (!deleteExecutionId) {
+              console.error('Error: Execution ID required');
+              process.exit(1);
+            }
+            await client.deleteExecution(deleteExecutionId);
+            console.log(`Execution ${deleteExecutionId} deleted successfully`);
+            break;
+
+          default:
+            console.error(`Unknown executions subcommand: ${subCommand}`);
+            process.exit(1);
+        }
         break;
 
       default:

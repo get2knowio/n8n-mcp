@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse } from './types.js';
+import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
@@ -53,5 +53,33 @@ export class N8nClient {
   async deactivateWorkflow(id: number): Promise<N8nWorkflow> {
     const response = await this.api.post<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}/deactivate`);
     return response.data.data;
+  }
+
+  async listExecutions(options?: { limit?: number; cursor?: string; workflowId?: string }): Promise<N8nExecutionsListResponse> {
+    const params = new URLSearchParams();
+    
+    if (options?.limit) {
+      params.append('limit', options.limit.toString());
+    }
+    if (options?.cursor) {
+      params.append('cursor', options.cursor);
+    }
+    if (options?.workflowId) {
+      params.append('workflowId', options.workflowId);
+    }
+
+    const url = `/executions${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await this.api.get<N8nExecutionsListResponse>(url);
+    return response.data;
+  }
+
+  async getExecution(id: string): Promise<N8nExecution> {
+    const response = await this.api.get<N8nApiResponse<N8nExecution>>(`/executions/${id}`);
+    return response.data.data;
+  }
+
+  async deleteExecution(id: string): Promise<N8nExecutionDeleteResponse> {
+    await this.api.delete(`/executions/${id}`);
+    return { success: true };
   }
 }
