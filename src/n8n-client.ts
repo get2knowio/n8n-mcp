@@ -159,5 +159,4 @@ export class N8nClient {
       throw error;
     }
   }
-  }
 }

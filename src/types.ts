@@ -107,4 +107,3 @@ export interface N8nExecutionResponse {
   executionId: string;
   status: string;
 }
-}
