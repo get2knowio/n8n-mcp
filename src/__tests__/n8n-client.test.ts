@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow, N8nVariable } from '../types';
+import { N8nConfig, N8nWorkflow, N8nVariable, N8nExecution, N8nWebhookUrls } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -39,6 +39,22 @@ describe('N8nClient', () => {
     id: 'var-123',
     key: 'test-key',
     value: 'test-value'
+  };
+
+  const mockExecution: N8nExecution = {
+    id: 'exec_123',
+    finished: true,
+    mode: 'manual',
+    startedAt: '2023-01-01T00:00:00.000Z',
+    stoppedAt: '2023-01-01T00:01:00.000Z',
+    workflowId: '1',
+    status: 'success',
+    data: {
+      resultData: {
+        runData: {},
+        lastNodeExecuted: 'webhook'
+      }
+    }
   };
 
   beforeEach(() => {
@@ -294,6 +310,48 @@ describe('N8nClient', () => {
     });
   });
 
+  describe('listExecutions', () => {
+    it('should return list of executions without options', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockExecution]
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listExecutions();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions');
+      expect(result).toEqual({ data: [mockExecution] });
+    });
+
+    it('should return list of executions with options', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockExecution],
+          nextCursor: 'next_cursor_123'
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listExecutions({ 
+        limit: 10, 
+        cursor: 'cursor_123',
+        workflowId: '1'
+      });
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions?limit=10&cursor=cursor_123&workflowId=1');
+      expect(result).toEqual({ data: [mockExecution], nextCursor: 'next_cursor_123' });
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('API Error');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.listExecutions()).rejects.toThrow('API Error');
+    });
+  });
+
   describe('createVariable', () => {
     it('should create a new variable', async () => {
       const newVariable = { key: 'new-key', value: 'new-value' };
@@ -361,6 +419,241 @@ describe('N8nClient', () => {
       mockApi.delete.mockRejectedValue(error);
 
       await expect(client.deleteVariable('var-999')).rejects.toThrow('Variable not found');
+    });
+  });
+
+  describe('getExecution', () => {
+    it('should return specific execution by ID', async () => {
+      const mockResponse = {
+        data: {
+          data: mockExecution
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.getExecution('exec_123');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions/exec_123');
+      expect(result).toEqual(mockExecution);
+    });
+
+    it('should handle execution not found', async () => {
+      const error = new Error('Execution not found');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.getExecution('nonexistent')).rejects.toThrow('Execution not found');
+    });
+  });
+
+  describe('deleteExecution', () => {
+    it('should delete an execution', async () => {
+      mockApi.delete.mockResolvedValue({});
+
+      const result = await client.deleteExecution('exec_123');
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/executions/exec_123');
+      expect(result).toEqual({ success: true });
+    });
+
+    it('should handle deletion errors', async () => {
+      const error = new Error('Deletion failed');
+      mockApi.delete.mockRejectedValue(error);
+
+      await expect(client.deleteExecution('exec_123')).rejects.toThrow('Deletion failed');
+    });
+  });
+
+  describe('getWebhookUrls', () => {
+    const mockWorkflowWithWebhook: N8nWorkflow = {
+      id: 1,
+      name: 'Test Workflow with Webhook',
+      nodes: [
+        {
+          id: 'webhook-node',
+          name: 'Webhook',
+          type: 'n8n-nodes-base.webhook',
+          typeVersion: 1,
+          position: [250, 300],
+          parameters: {
+            httpMethod: 'GET',
+            path: 'test-webhook'
+          }
+        }
+      ],
+      connections: {},
+      active: false
+    };
+
+    it('should return webhook URLs for a valid webhook node', async () => {
+      const mockResponse = {
+        data: {
+          data: mockWorkflowWithWebhook
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.getWebhookUrls(1, 'webhook-node');
+
+      expect(result).toEqual({
+        testUrl: 'http://test-n8n.local:5678/webhook-test/test-webhook',
+        productionUrl: 'http://test-n8n.local:5678/webhook/test-webhook'
+      });
+    });
+
+    it('should throw error when node is not found', async () => {
+      const mockResponse = {
+        data: {
+          data: mockWorkflowWithWebhook
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      await expect(client.getWebhookUrls(1, 'non-existent-node')).rejects.toThrow(
+        "Node with ID 'non-existent-node' not found in workflow 1"
+      );
+    });
+
+    it('should throw error when node is not a webhook node', async () => {
+      const workflowWithNonWebhook = {
+        ...mockWorkflowWithWebhook,
+        nodes: [
+          {
+            id: 'http-node',
+            name: 'HTTP Request',
+            type: 'n8n-nodes-base.httpRequest',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+      
+      const mockResponse = {
+        data: {
+          data: workflowWithNonWebhook
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      await expect(client.getWebhookUrls(1, 'http-node')).rejects.toThrow(
+        "Node 'http-node' is not a webhook node (type: n8n-nodes-base.httpRequest)"
+      );
+    });
+
+    it('should throw error when webhook node has no path', async () => {
+      const workflowWithoutPath = {
+        ...mockWorkflowWithWebhook,
+        nodes: [
+          {
+            id: 'webhook-node',
+            name: 'Webhook',
+            type: 'n8n-nodes-base.webhook',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+      
+      const mockResponse = {
+        data: {
+          data: workflowWithoutPath
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      await expect(client.getWebhookUrls(1, 'webhook-node')).rejects.toThrow(
+        "Webhook node 'webhook-node' does not have a path configured"
+      );
+    });
+  });
+
+  describe('runOnce', () => {
+    const mockExecutionResponse = {
+      data: {
+        data: {
+          id: 'exec-123',
+          status: 'running'
+        }
+      }
+    };
+
+    it('should execute a manual workflow', async () => {
+      // Mock workflow without trigger nodes
+      const manualWorkflow = {
+        ...mockWorkflow,
+        nodes: [
+          {
+            id: 'start',
+            name: 'Start',
+            type: 'n8n-nodes-base.start',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+
+      mockApi.get.mockResolvedValue({ data: { data: manualWorkflow } });
+      mockApi.post.mockResolvedValue(mockExecutionResponse);
+
+      const result = await client.runOnce(1, { test: 'data' });
+
+      expect(mockApi.post).toHaveBeenCalledWith('/workflows/1/execute', {
+        data: { test: 'data' }
+      });
+      expect(result).toEqual({
+        executionId: 'exec-123',
+        status: 'running'
+      });
+    });
+
+    it('should execute a trigger workflow', async () => {
+      // Mock workflow with trigger nodes
+      const triggerWorkflow = {
+        ...mockWorkflow,
+        nodes: [
+          {
+            id: 'webhook',
+            name: 'Webhook',
+            type: 'n8n-nodes-base.webhook',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+
+      mockApi.get.mockResolvedValue({ data: { data: triggerWorkflow } });
+      mockApi.post.mockResolvedValue(mockExecutionResponse);
+
+      const result = await client.runOnce(1);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/executions', {
+        workflowData: triggerWorkflow,
+        runData: {}
+      });
+      expect(result).toEqual({
+        executionId: 'exec-123',
+        status: 'running'
+      });
+    });
+
+    it('should handle execution errors', async () => {
+      mockApi.get.mockResolvedValue({ data: { data: mockWorkflow } });
+      const error = new Error('Execution failed');
+      mockApi.post.mockRejectedValue(error);
+
+      await expect(client.runOnce(1)).rejects.toThrow('Execution failed');
+    });
+
+    it('should handle workflow not found errors', async () => {
+      const error = new Error('404 - Workflow not found');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.runOnce(999)).rejects.toThrow(
+        'Workflow 999 not found or cannot be executed manually'
+      );
     });
   });
 });
