@@ -93,6 +93,15 @@ npm run cli executions get exec_123
 
 # Delete an execution
 npm run cli executions delete exec_123
+
+# Get webhook URLs for a webhook node
+npm run cli webhook-urls 1 webhook-node-id
+
+# Execute a workflow manually once
+npm run cli run-once 1
+
+# Execute a workflow with input data
+npm run cli run-once 1 input-data.json
 ```
 
 ### Available Tools
@@ -107,6 +116,8 @@ npm run cli executions delete exec_123
 8. **list_executions** - List workflow executions with pagination
 9. **get_execution** - Get execution by ID
 10. **delete_execution** - Delete an execution
+11. **webhook_urls** - Get webhook URLs for a webhook node
+12. **run_once** - Execute a workflow manually once
 
 ## Example Workflow Creation
 
@@ -181,6 +192,83 @@ When listing executions:
 - Use `nextCursor` from response to get the next page
 - Cursors are opaque strings - store and use them as-is
 - Empty `nextCursor` indicates no more pages available
+
+## Webhook URLs
+
+The `webhook_urls` tool helps you get the correct webhook URLs for webhook nodes in your workflows. This is useful for:
+
+- Getting URLs to configure external systems that need to call your webhooks
+- Testing webhook endpoints during development
+- Documentation and integration guides
+
+### Prerequisites for Webhook Nodes
+
+For the `webhook_urls` tool to work correctly, your webhook node must:
+
+1. Be of type `n8n-nodes-base.webhook`
+2. Have a `path` parameter configured
+3. Be part of an existing workflow
+
+### URL Format
+
+The tool returns URLs in n8n's standard format:
+- **Test URL**: `${baseUrl}/webhook-test/${path}` - Used for testing during workflow development
+- **Production URL**: `${baseUrl}/webhook/${path}` - Used when the workflow is active
+
+### Example Usage
+
+```javascript
+// Get webhook URLs for a node
+const urls = await client.getWebhookUrls(1, 'webhook-node-id');
+console.log(urls);
+// Output:
+// {
+//   "testUrl": "http://localhost:5678/webhook-test/my-webhook",
+//   "productionUrl": "http://localhost:5678/webhook/my-webhook"
+// }
+```
+
+## Manual Workflow Execution
+
+The `run_once` tool allows you to manually execute workflows, which is useful for:
+
+- Testing workflows during development
+- Triggering workflows programmatically
+- Running workflows with specific input data
+- Debugging workflow issues
+
+### Workflow Types
+
+The tool handles different workflow types gracefully:
+
+1. **Manual Workflows**: Workflows that start with manual triggers (e.g., Start node)
+2. **Trigger Workflows**: Workflows with automatic triggers (e.g., Webhook, Cron, etc.)
+
+### Input Data
+
+You can optionally provide input data when executing a workflow:
+
+```javascript
+// Execute without input
+const execution = await client.runOnce(1);
+
+// Execute with input data
+const execution = await client.runOnce(1, { 
+  name: "John Doe", 
+  email: "john@example.com" 
+});
+```
+
+### Response Format
+
+The tool returns execution details:
+
+```javascript
+{
+  "executionId": "uuid-execution-id",
+  "status": "running" // or "completed", "failed", etc.
+}
+```
 
 ## Development
 

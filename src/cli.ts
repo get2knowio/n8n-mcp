@@ -18,10 +18,11 @@ Commands:
   delete <id>            Delete workflow by ID
   activate <id>          Activate workflow
   deactivate <id>        Deactivate workflow
-  
   executions list [options]              List executions
   executions get <id>                    Get execution by ID
   executions delete <id>                 Delete execution by ID
+  webhook-urls <workflowId> <nodeId>     Get webhook URLs for a node
+  run-once <workflowId> [input.json]     Execute workflow once
 
 Options for executions list:
   --limit <number>       Maximum number of executions to return
@@ -158,6 +159,35 @@ Environment variables:
             console.error(`Unknown executions subcommand: ${subCommand}`);
             process.exit(1);
         }
+        break;
+
+      case 'webhook-urls':
+        const webhookWorkflowId = parseInt(args[1]);
+        const nodeId = args[2];
+        if (!webhookWorkflowId || !nodeId) {
+          console.error('Error: Workflow ID and Node ID required');
+          process.exit(1);
+        }
+        const urls = await client.getWebhookUrls(webhookWorkflowId, nodeId);
+        console.log('Webhook URLs:', JSON.stringify(urls, null, 2));
+        break;
+
+      case 'run-once':
+        const runWorkflowId = parseInt(args[1]);
+        if (!runWorkflowId) {
+          console.error('Error: Workflow ID required');
+          process.exit(1);
+        }
+        
+        let inputData;
+        if (args[2]) {
+          // If input file provided, read it
+          const fs = await import('fs/promises');
+          inputData = JSON.parse(await fs.readFile(args[2], 'utf8'));
+        }
+        
+        const execution = await client.runOnce(runWorkflowId, inputData);
+        console.log('Execution started:', JSON.stringify(execution, null, 2));
         break;
 
       default:

@@ -97,3 +97,14 @@ export interface N8nExecutionsListResponse {
 export interface N8nExecutionDeleteResponse {
   success: boolean;
 }
+
+export interface N8nWebhookUrls {
+  testUrl: string;
+  productionUrl: string;
+}
+
+export interface N8nExecutionResponse {
+  executionId: string;
+  status: string;
+}
+}

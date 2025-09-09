@@ -1,12 +1,14 @@
 import axios, { AxiosInstance } from 'axios';
-import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse } from './types.js';
+import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
+  private baseUrl: string;
 
   constructor(config: N8nConfig) {
+    this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.api = axios.create({
-      baseURL: `${config.baseUrl}/api/v1`,
+      baseURL: `${this.baseUrl}/api/v1`,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -81,5 +83,81 @@ export class N8nClient {
   async deleteExecution(id: string): Promise<N8nExecutionDeleteResponse> {
     await this.api.delete(`/executions/${id}`);
     return { success: true };
+  }
+
+  async getWebhookUrls(workflowId: number, nodeId: string): Promise<N8nWebhookUrls> {
+    // Get the workflow to find the webhook node
+    const workflow = await this.getWorkflow(workflowId);
+    const webhookNode = workflow.nodes.find(node => node.id === nodeId);
+    
+    if (!webhookNode) {
+      throw new Error(`Node with ID '${nodeId}' not found in workflow ${workflowId}`);
+    }
+    
+    if (webhookNode.type !== 'n8n-nodes-base.webhook') {
+      throw new Error(`Node '${nodeId}' is not a webhook node (type: ${webhookNode.type})`);
+    }
+    
+    const path = webhookNode.parameters?.path || '';
+    if (!path) {
+      throw new Error(`Webhook node '${nodeId}' does not have a path configured`);
+    }
+    
+    // Construct URLs based on n8n's webhook URL pattern
+    const testUrl = `${this.baseUrl}/webhook-test/${path}`;
+    const productionUrl = `${this.baseUrl}/webhook/${path}`;
+    
+    return {
+      testUrl,
+      productionUrl
+    };
+  }
+
+  async runOnce(workflowId: number, input?: any): Promise<N8nExecutionResponse> {
+    try {
+      // Get the workflow to check if it's a trigger workflow
+      const workflow = await this.getWorkflow(workflowId);
+      
+      // Check if workflow has trigger nodes (starts automatically)
+      const hasTriggerNodes = workflow.nodes.some(node => 
+        node.type === 'n8n-nodes-base.webhook' ||
+        node.type === 'n8n-nodes-base.cron' ||
+        node.type.includes('trigger')
+      );
+      
+      // For trigger workflows, we need to use a different approach
+      if (hasTriggerNodes) {
+        // Use the executions endpoint to manually trigger
+        const executionData = {
+          workflowData: workflow,
+          runData: input || {}
+        };
+        
+        const response = await this.api.post<N8nApiResponse<any>>('/executions', executionData);
+        
+        return {
+          executionId: response.data.data.id || response.data.data.executionId,
+          status: response.data.data.status || 'running'
+        };
+      } else {
+        // For manual workflows, trigger directly
+        const response = await this.api.post<N8nApiResponse<any>>(`/workflows/${workflowId}/execute`, {
+          data: input || {}
+        });
+        
+        return {
+          executionId: response.data.data.id || response.data.data.executionId,
+          status: response.data.data.status || 'running'
+        };
+      }
+    } catch (error) {
+      // If the workflow can't be executed (e.g., no trigger nodes for manual workflow),
+      // provide a helpful error message
+      if (error instanceof Error && error.message.includes('404')) {
+        throw new Error(`Workflow ${workflowId} not found or cannot be executed manually`);
+      }
+      throw error;
+    }
+  }
   }
 }
