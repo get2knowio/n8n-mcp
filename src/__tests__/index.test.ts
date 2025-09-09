@@ -28,6 +28,10 @@ jest.mock('../n8n-client', () => ({
     deleteWorkflow: jest.fn(),
     activateWorkflow: jest.fn(),
     deactivateWorkflow: jest.fn(),
+    listVariables: jest.fn(),
+    createVariable: jest.fn(),
+    updateVariable: jest.fn(),
+    deleteVariable: jest.fn(),
   }))
 }));
 

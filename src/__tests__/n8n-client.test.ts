@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow } from '../types';
+import { N8nConfig, N8nWorkflow, N8nVariable } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -35,6 +35,12 @@ describe('N8nClient', () => {
     tags: ['test']
   };
 
+  const mockVariable: N8nVariable = {
+    id: 'var-123',
+    key: 'test-key',
+    value: 'test-value'
+  };
+
   beforeEach(() => {
     mockApi = {
       defaults: {
@@ -45,6 +51,7 @@ describe('N8nClient', () => {
       get: jest.fn(),
       post: jest.fn(),
       patch: jest.fn(),
+      put: jest.fn(),
       delete: jest.fn(),
     };
 
@@ -243,6 +250,117 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('listVariables', () => {
+    it('should return list of variables', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockVariable],
+          nextCursor: undefined
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listVariables();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/variables');
+      expect(result).toEqual({
+        data: [mockVariable],
+        nextCursor: undefined
+      });
+    });
+
+    it('should handle pagination', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockVariable],
+          nextCursor: 'next-cursor-123'
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listVariables();
+
+      expect(result.nextCursor).toBe('next-cursor-123');
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('API Error');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.listVariables()).rejects.toThrow('API Error');
+    });
+  });
+
+  describe('createVariable', () => {
+    it('should create a new variable', async () => {
+      const newVariable = { key: 'new-key', value: 'new-value' };
+      const mockResponse = {
+        data: {
+          data: { ...newVariable, id: 'var-456' }
+        }
+      };
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await client.createVariable(newVariable);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/variables', newVariable);
+      expect(result).toEqual({ ...newVariable, id: 'var-456' });
+    });
+
+    it('should handle duplicate key errors', async () => {
+      const newVariable = { key: 'existing-key', value: 'new-value' };
+      const error = new Error('Variable with key already exists');
+      mockApi.post.mockRejectedValue(error);
+
+      await expect(client.createVariable(newVariable)).rejects.toThrow('Variable with key already exists');
+    });
+  });
+
+  describe('updateVariable', () => {
+    it('should update an existing variable', async () => {
+      const updateData = { value: 'updated-value' };
+      const updatedVariable = { ...mockVariable, ...updateData };
+      
+      const mockResponse = {
+        data: {
+          data: updatedVariable
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.updateVariable('var-123', updateData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/variables/var-123', updateData);
+      expect(result).toEqual(updatedVariable);
+    });
+
+    it('should handle update errors', async () => {
+      const updateData = { value: 'updated-value' };
+      const error = new Error('Variable not found');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.updateVariable('var-999', updateData)).rejects.toThrow('Variable not found');
+    });
+  });
+
+  describe('deleteVariable', () => {
+    it('should delete a variable', async () => {
+      mockApi.delete.mockResolvedValue({});
+
+      const result = await client.deleteVariable('var-123');
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/variables/var-123');
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('should handle deletion errors', async () => {
+      const error = new Error('Variable not found');
+      mockApi.delete.mockRejectedValue(error);
+
+      await expect(client.deleteVariable('var-999')).rejects.toThrow('Variable not found');
     });
   });
 });
