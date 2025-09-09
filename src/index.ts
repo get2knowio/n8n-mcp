@@ -17,6 +17,10 @@ export class N8nMcpServer {
     this.server = new Server({
       name: 'n8n-mcp',
       version: '1.0.0',
+    }, {
+      capabilities: {
+        tools: {},
+      },
     });
 
     this.setupConfig();
@@ -143,6 +147,10 @@ export class N8nMcpServer {
                     type: 'string',
                   },
                 },
+                ifMatch: {
+                  type: 'string',
+                  description: 'Optional If-Match header value for optimistic concurrency control',
+                },
               },
               required: ['id'],
             },
@@ -208,7 +216,7 @@ export class N8nMcpServer {
             return await this.handleCreateWorkflow(request.params.arguments as Omit<N8nWorkflow, 'id'>);
 
           case 'update_workflow':
-            return await this.handleUpdateWorkflow(request.params.arguments as { id: number } & Partial<N8nWorkflow>);
+            return await this.handleUpdateWorkflow(request.params.arguments as { id: number; ifMatch?: string } & Partial<N8nWorkflow>);
 
           case 'delete_workflow':
             return await this.handleDeleteWorkflow(request.params.arguments as { id: number });
@@ -273,9 +281,9 @@ export class N8nMcpServer {
     };
   }
 
-  private async handleUpdateWorkflow(args: { id: number } & Partial<N8nWorkflow>) {
-    const { id, ...updateData } = args;
-    const workflow = await this.n8nClient.updateWorkflow(id, updateData);
+  private async handleUpdateWorkflow(args: { id: number; ifMatch?: string } & Partial<N8nWorkflow>) {
+    const { id, ifMatch, ...updateData } = args;
+    const workflow = await this.n8nClient.updateWorkflow(id, updateData, ifMatch);
     return {
       content: [
         {

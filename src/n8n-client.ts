@@ -36,9 +36,23 @@ export class N8nClient {
     return response.data.data;
   }
 
-  async updateWorkflow(id: number, workflow: Partial<N8nWorkflow>): Promise<N8nWorkflow> {
-    const response = await this.api.patch<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`, workflow);
-    return response.data.data;
+  async updateWorkflow(id: number, workflow: Partial<N8nWorkflow>, ifMatch?: string): Promise<N8nWorkflow> {
+    const headers: Record<string, string> = {};
+    if (ifMatch) {
+      headers['If-Match'] = ifMatch;
+    }
+
+    try {
+      const response = await this.api.put<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`, workflow, {
+        headers,
+      });
+      return response.data.data;
+    } catch (error: any) {
+      if (error.response?.status === 412) {
+        throw new Error('Precondition failed: The workflow has been modified by another user. Please fetch the latest version and try again.');
+      }
+      throw error;
+    }
   }
 
   async deleteWorkflow(id: number): Promise<void> {

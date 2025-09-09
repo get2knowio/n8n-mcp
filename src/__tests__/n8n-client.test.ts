@@ -44,7 +44,7 @@ describe('N8nClient', () => {
       },
       get: jest.fn(),
       post: jest.fn(),
-      patch: jest.fn(),
+      put: jest.fn(),
       delete: jest.fn(),
     };
 
@@ -155,7 +155,7 @@ describe('N8nClient', () => {
   });
 
   describe('updateWorkflow', () => {
-    it('should update an existing workflow', async () => {
+    it('should update an existing workflow using PUT', async () => {
       const updateData = { name: 'Updated Workflow' };
       const updatedWorkflow = { ...mockWorkflow, ...updateData };
       
@@ -164,18 +164,53 @@ describe('N8nClient', () => {
           data: updatedWorkflow
         }
       };
-      mockApi.patch.mockResolvedValue(mockResponse);
+      mockApi.put.mockResolvedValue(mockResponse);
 
       const result = await client.updateWorkflow(1, updateData);
 
-      expect(mockApi.patch).toHaveBeenCalledWith('/workflows/1', updateData);
+      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1', updateData, { headers: {} });
       expect(result).toEqual(updatedWorkflow);
     });
 
-    it('should handle update errors', async () => {
+    it('should update an existing workflow with If-Match header', async () => {
+      const updateData = { name: 'Updated Workflow' };
+      const updatedWorkflow = { ...mockWorkflow, ...updateData };
+      const ifMatch = 'some-etag-value';
+      
+      const mockResponse = {
+        data: {
+          data: updatedWorkflow
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.updateWorkflow(1, updateData, ifMatch);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1', updateData, { 
+        headers: { 'If-Match': ifMatch } 
+      });
+      expect(result).toEqual(updatedWorkflow);
+    });
+
+    it('should handle 412 precondition failed error gracefully', async () => {
+      const updateData = { name: 'Updated Workflow' };
+      const ifMatch = 'outdated-etag';
+      
+      const error = {
+        response: {
+          status: 412
+        }
+      };
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.updateWorkflow(1, updateData, ifMatch))
+        .rejects.toThrow('Precondition failed: The workflow has been modified by another user. Please fetch the latest version and try again.');
+    });
+
+    it('should handle other update errors', async () => {
       const updateData = { name: 'Updated Workflow' };
       const error = new Error('Update failed');
-      mockApi.patch.mockRejectedValue(error);
+      mockApi.put.mockRejectedValue(error);
 
       await expect(client.updateWorkflow(1, updateData)).rejects.toThrow('Update failed');
     });
