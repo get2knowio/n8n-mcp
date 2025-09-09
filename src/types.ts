@@ -56,3 +56,23 @@ export interface N8nConfig {
   username?: string;
   password?: string;
 }
+
+export interface N8nWebhookUrls {
+  testUrl: string;
+  productionUrl: string;
+}
+
+export interface N8nExecution {
+  id: string;
+  status: string;
+  workflowId: string;
+  createdAt: string;
+  startedAt?: string;
+  stoppedAt?: string;
+  data?: any;
+}
+
+export interface N8nExecutionResponse {
+  executionId: string;
+  status: string;
+}
