@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow, N8nExecution, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nVariable, N8nExecution, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -190,6 +190,64 @@ export class N8nMcpServer {
             },
           },
           {
+            name: 'list_variables',
+            description: 'List all n8n variables',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'create_variable',
+            description: 'Create a new n8n variable',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                key: {
+                  type: 'string',
+                  description: 'The variable key (must be unique)',
+                },
+                value: {
+                  type: 'string',
+                  description: 'The variable value',
+                },
+              },
+              required: ['key', 'value'],
+            },
+          },
+          {
+            name: 'update_variable',
+            description: 'Update an existing n8n variable',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'The variable ID',
+                },
+                value: {
+                  type: 'string',
+                  description: 'The new variable value',
+                },
+              },
+              required: ['id', 'value'],
+            },
+          },
+          {
+            name: 'delete_variable',
+            description: 'Delete an n8n variable',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'The variable ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
             name: 'list_executions',
             description: 'List n8n workflow executions',
             inputSchema: {
@@ -304,6 +362,18 @@ export class N8nMcpServer {
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
 
+          case 'list_variables':
+            return await this.handleListVariables();
+
+          case 'create_variable':
+            return await this.handleCreateVariable(request.params.arguments as { key: string; value: string });
+
+          case 'update_variable':
+            return await this.handleUpdateVariable(request.params.arguments as { id: string; value: string });
+
+          case 'delete_variable':
+            return await this.handleDeleteVariable(request.params.arguments as { id: string });
+
           case 'list_executions':
             return await this.handleListExecutions(request.params.arguments as { limit?: number; cursor?: string; workflowId?: string });
 
@@ -417,6 +487,54 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleListVariables() {
+    const response = await this.n8nClient.listVariables();
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleCreateVariable(args: { key: string; value: string }) {
+    const variable = await this.n8nClient.createVariable(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Variable created successfully:\n${JSON.stringify(variable, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleUpdateVariable(args: { id: string; value: string }) {
+    const variable = await this.n8nClient.updateVariable(args.id, { value: args.value });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Variable updated successfully:\n${JSON.stringify(variable, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleDeleteVariable(args: { id: string }) {
+    const result = await this.n8nClient.deleteVariable(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Variable ${args.id} deleted successfully`,
         },
       ],
     };

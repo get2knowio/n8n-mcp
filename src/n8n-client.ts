@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
+import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nVariable, N8nVariablesListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
@@ -55,6 +55,26 @@ export class N8nClient {
   async deactivateWorkflow(id: number): Promise<N8nWorkflow> {
     const response = await this.api.post<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}/deactivate`);
     return response.data.data;
+  }
+
+  async listVariables(): Promise<N8nVariablesListResponse> {
+    const response = await this.api.get<N8nVariablesListResponse>('/variables');
+    return response.data;
+  }
+
+  async createVariable(variable: Omit<N8nVariable, 'id'>): Promise<N8nVariable> {
+    const response = await this.api.post<N8nApiResponse<N8nVariable>>('/variables', variable);
+    return response.data.data;
+  }
+
+  async updateVariable(id: string, variable: Partial<N8nVariable>): Promise<N8nVariable> {
+    const response = await this.api.put<N8nApiResponse<N8nVariable>>(`/variables/${id}`, variable);
+    return response.data.data;
+  }
+
+  async deleteVariable(id: string): Promise<{ ok: boolean }> {
+    await this.api.delete(`/variables/${id}`);
+    return { ok: true };
   }
 
   async listExecutions(options?: { limit?: number; cursor?: string; workflowId?: string }): Promise<N8nExecutionsListResponse> {

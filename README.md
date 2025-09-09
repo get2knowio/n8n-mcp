@@ -9,6 +9,7 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 
 ## Features
 
+### Workflow Management
 - **List Workflows**: Get all workflows from your n8n instance
 - **Get Workflow**: Retrieve a specific workflow by ID
 - **Create Workflow**: Create new workflows with nodes and connections
@@ -18,6 +19,13 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **List Executions**: Get workflow executions with pagination support
 - **Get Execution**: Retrieve specific execution details by ID
 - **Delete Execution**: Remove execution records
+
+### Variables Management
+- **List Variables**: Get all variables with pagination support
+- **Create Variable**: Create new key-value variables (enforces unique keys)
+- **Update Variable**: Modify existing variable values
+- **Delete Variable**: Remove variables
+- **CLI & MCP Support**: Full access via both command line and MCP tools
 
 ## Installation
 
@@ -82,6 +90,12 @@ npm run cli delete 1
 npm run cli activate 1
 npm run cli deactivate 1
 
+# Variables management
+npm run cli variables list
+npm run cli variables create --key mykey --value myvalue
+npm run cli variables update var-123 --value newvalue
+npm run cli variables delete var-123
+
 # List executions
 npm run cli executions list
 
@@ -106,6 +120,7 @@ npm run cli run-once 1 input-data.json
 
 ### Available Tools
 
+#### Workflow Tools
 1. **list_workflows** - List all workflows
 2. **get_workflow** - Get workflow by ID
 3. **create_workflow** - Create a new workflow
@@ -118,6 +133,17 @@ npm run cli run-once 1 input-data.json
 10. **delete_execution** - Delete an execution
 11. **webhook_urls** - Get webhook URLs for a webhook node
 12. **run_once** - Execute a workflow manually once
+
+#### Variables Tools
+8. **list_variables** - List all variables with pagination support
+9. **create_variable** - Create a new variable (requires unique key)
+10. **update_variable** - Update an existing variable value
+11. **delete_variable** - Delete a variable
+12. **list_executions** - List workflow executions with pagination
+13. **get_execution** - Get execution by ID
+14. **delete_execution** - Delete an execution
+15. **webhook_urls** - Get webhook URLs for a webhook node
+16. **run_once** - Execute a workflow manually once
 
 ## Example Workflow Creation
 
@@ -142,6 +168,43 @@ npm run cli run-once 1 input-data.json
   "tags": ["example"]
 }
 ```
+
+## Example Variable Management
+
+Variables in n8n are simple key-value pairs that can be used for configuration and state management:
+
+```json
+{
+  "id": "var-123",
+  "key": "api_endpoint",
+  "value": "https://api.example.com/v1"
+}
+```
+
+### CLI Usage Examples
+
+```bash
+# Create a variable
+npm run cli variables create --key environment --value production
+
+# List all variables
+npm run cli variables list
+
+# Update a variable value
+npm run cli variables update var-123 --value "https://api.newdomain.com/v2"
+
+# Delete a variable
+npm run cli variables delete var-123
+```
+
+### MCP Tool Usage
+
+Variables can be managed through MCP tools for integration with AI agents:
+
+- `list_variables()` - Returns paginated list of all variables
+- `create_variable({ key: "config_mode", value: "advanced" })` - Creates new variable
+- `update_variable({ id: "var-123", value: "new_value" })` - Updates existing variable
+- `delete_variable({ id: "var-123" })` - Removes variable
 
 ## Execution Management
 
@@ -269,7 +332,6 @@ The tool returns execution details:
   "status": "running" // or "completed", "failed", etc.
 }
 ```
-
 ## Development
 
 ### Setup

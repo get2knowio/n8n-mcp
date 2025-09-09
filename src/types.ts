@@ -50,6 +50,17 @@ export interface N8nWorkflowsListResponse {
   data: N8nWorkflow[];
 }
 
+export interface N8nVariable {
+  id?: string;
+  key: string;
+  value: string;
+}
+
+export interface N8nVariablesListResponse {
+  data: N8nVariable[];
+  nextCursor?: string;
+}
+
 export interface N8nConfig {
   baseUrl: string;
   apiKey?: string;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { N8nWorkflow, N8nNode, N8nConnections, N8nConfig } from '../types';
+import { N8nWorkflow, N8nNode, N8nConnections, N8nConfig, N8nVariable } from '../types';
 
 describe('Types', () => {
   describe('N8nWorkflow', () => {
@@ -140,6 +140,33 @@ describe('Types', () => {
 
       expect(config).toBeDefined();
       expect(config.baseUrl).toBe('http://localhost:5678');
+    });
+  });
+
+  describe('N8nVariable', () => {
+    it('should define a valid variable structure', () => {
+      const variable: N8nVariable = {
+        id: 'var-123',
+        key: 'test-key',
+        value: 'test-value'
+      };
+
+      expect(variable).toBeDefined();
+      expect(variable.id).toBe('var-123');
+      expect(variable.key).toBe('test-key');
+      expect(variable.value).toBe('test-value');
+    });
+
+    it('should work without optional id field', () => {
+      const variable: N8nVariable = {
+        key: 'minimal-key',
+        value: 'minimal-value'
+      };
+
+      expect(variable).toBeDefined();
+      expect(variable.key).toBe('minimal-key');
+      expect(variable.value).toBe('minimal-value');
+      expect(variable.id).toBeUndefined();
     });
   });
 });
