@@ -56,3 +56,15 @@ export interface N8nConfig {
   username?: string;
   password?: string;
 }
+
+export interface N8nCredentialSchema {
+  type: string;
+  displayName: string;
+  name: string;
+  properties: Record<string, any>;
+  required?: string[];
+  description?: string;
+  icon?: string;
+  iconUrl?: string;
+  category?: string;
+}

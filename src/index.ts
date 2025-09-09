@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nCredentialSchema } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +189,20 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'get_credential_schema',
+            description: 'Get JSON schema for a credential type',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                credentialTypeName: {
+                  type: 'string',
+                  description: 'The name of the credential type',
+                },
+              },
+              required: ['credentialTypeName'],
+            },
+          },
         ],
       };
     });
@@ -218,6 +232,9 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'get_credential_schema':
+            return await this.handleGetCredentialSchema(request.params.arguments as { credentialTypeName: string });
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -317,6 +334,18 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleGetCredentialSchema(args: { credentialTypeName: string }) {
+    const schema = await this.n8nClient.getCredentialSchema(args.credentialTypeName);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(schema, null, 2),
         },
       ],
     };

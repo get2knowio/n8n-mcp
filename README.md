@@ -15,6 +15,7 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Get Credential Schema**: Fetch JSON schema for credential types to validate or drive UIs
 
 ## Installation
 
@@ -78,6 +79,9 @@ npm run cli delete 1
 # Activate/deactivate workflows
 npm run cli activate 1
 npm run cli deactivate 1
+
+# Get credential schema
+npm run cli get-credential-schema httpHeaderAuth
 ```
 
 ### Available Tools
@@ -89,6 +93,7 @@ npm run cli deactivate 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
+8. **get_credential_schema** - Get JSON schema for a credential type
 
 ## Example Workflow Creation
 
