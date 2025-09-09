@@ -15,7 +15,12 @@
     "lint": "tsc --noEmit",
     "prepack": "npm run build"
   },
-  "keywords": ["n8n", "mcp", "workflow", "automation"],
+  "keywords": [
+    "n8n",
+    "mcp",
+    "workflow",
+    "automation"
+  ],
   "author": "",
   "license": "MIT",
   "repository": {
