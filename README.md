@@ -15,6 +15,9 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **List Executions**: Get workflow executions with pagination support
+- **Get Execution**: Retrieve specific execution details by ID
+- **Delete Execution**: Remove execution records
 
 ## Installation
 
@@ -79,6 +82,18 @@ npm run cli delete 1
 npm run cli activate 1
 npm run cli deactivate 1
 
+# List executions
+npm run cli executions list
+
+# List executions with pagination and filtering
+npm run cli executions list --limit 50 --workflow-id 1
+
+# Get a specific execution
+npm run cli executions get exec_123
+
+# Delete an execution
+npm run cli executions delete exec_123
+
 # Get webhook URLs for a webhook node
 npm run cli webhook-urls 1 webhook-node-id
 
@@ -98,8 +113,11 @@ npm run cli run-once 1 input-data.json
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
-8. **webhook_urls** - Get webhook URLs for a webhook node
-9. **run_once** - Execute a workflow manually once
+8. **list_executions** - List workflow executions with pagination
+9. **get_execution** - Get execution by ID
+10. **delete_execution** - Delete an execution
+11. **webhook_urls** - Get webhook URLs for a webhook node
+12. **run_once** - Execute a workflow manually once
 
 ## Example Workflow Creation
 
@@ -124,6 +142,56 @@ npm run cli run-once 1 input-data.json
   "tags": ["example"]
 }
 ```
+
+## Execution Management
+
+The server provides comprehensive execution management capabilities:
+
+### Listing Executions
+
+```bash
+# List recent executions
+npm run cli executions list
+
+# List with pagination
+npm run cli executions list --limit 20 --cursor next_page_cursor
+
+# Filter by workflow
+npm run cli executions list --workflow-id 1
+```
+
+The `list_executions` tool supports:
+- **limit**: Maximum number of executions to return (pagination)
+- **cursor**: Pagination cursor for getting next/previous pages
+- **workflowId**: Filter executions by specific workflow ID
+
+### Getting Execution Details
+
+```bash
+npm run cli executions get exec_12345
+```
+
+Returns complete execution data including:
+- Execution status and timing
+- Input/output data
+- Error details (if failed)
+- Node execution results
+
+### Deleting Executions
+
+```bash
+npm run cli executions delete exec_12345
+```
+
+Permanently removes execution records to help manage storage.
+
+### Pagination Notes
+
+When listing executions:
+- Use `limit` parameter to control page size
+- Use `nextCursor` from response to get the next page
+- Cursors are opaque strings - store and use them as-is
+- Empty `nextCursor` indicates no more pages available
 
 ## Webhook URLs
 

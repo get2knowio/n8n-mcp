@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow } from '../types';
+import { N8nConfig, N8nWorkflow, N8nExecution, N8nWebhookUrls } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -33,6 +33,22 @@ describe('N8nClient', () => {
     connections: {},
     active: false,
     tags: ['test']
+  };
+
+  const mockExecution: N8nExecution = {
+    id: 'exec_123',
+    finished: true,
+    mode: 'manual',
+    startedAt: '2023-01-01T00:00:00.000Z',
+    stoppedAt: '2023-01-01T00:01:00.000Z',
+    workflowId: '1',
+    status: 'success',
+    data: {
+      resultData: {
+        runData: {},
+        lastNodeExecuted: 'webhook'
+      }
+    }
   };
 
   beforeEach(() => {
@@ -243,6 +259,89 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('listExecutions', () => {
+    it('should return list of executions without options', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockExecution]
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listExecutions();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions');
+      expect(result).toEqual({ data: [mockExecution] });
+    });
+
+    it('should return list of executions with options', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockExecution],
+          nextCursor: 'next_cursor_123'
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listExecutions({ 
+        limit: 10, 
+        cursor: 'cursor_123',
+        workflowId: '1'
+      });
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions?limit=10&cursor=cursor_123&workflowId=1');
+      expect(result).toEqual({ data: [mockExecution], nextCursor: 'next_cursor_123' });
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('API Error');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.listExecutions()).rejects.toThrow('API Error');
+    });
+  });
+
+  describe('getExecution', () => {
+    it('should return specific execution by ID', async () => {
+      const mockResponse = {
+        data: {
+          data: mockExecution
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.getExecution('exec_123');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions/exec_123');
+      expect(result).toEqual(mockExecution);
+    });
+
+    it('should handle execution not found', async () => {
+      const error = new Error('Execution not found');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.getExecution('nonexistent')).rejects.toThrow('Execution not found');
+    });
+  });
+
+  describe('deleteExecution', () => {
+    it('should delete an execution', async () => {
+      mockApi.delete.mockResolvedValue({});
+
+      const result = await client.deleteExecution('exec_123');
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/executions/exec_123');
+      expect(result).toEqual({ success: true });
+    });
+
+    it('should handle deletion errors', async () => {
+      const error = new Error('Deletion failed');
+      mockApi.delete.mockRejectedValue(error);
+
+      await expect(client.deleteExecution('exec_123')).rejects.toThrow('Deletion failed');
     });
   });
 

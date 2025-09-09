@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nExecution, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -190,6 +190,55 @@ export class N8nMcpServer {
             },
           },
           {
+            name: 'list_executions',
+            description: 'List n8n workflow executions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of executions to return',
+                },
+                cursor: {
+                  type: 'string',
+                  description: 'Cursor for pagination',
+                },
+                workflowId: {
+                  type: 'string',
+                  description: 'Filter executions by workflow ID',
+                },
+              },
+            },
+          },
+          {
+            name: 'get_execution',
+            description: 'Get a specific n8n execution by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'The execution ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'delete_execution',
+            description: 'Delete an n8n execution',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'The execution ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
             name: 'webhook_urls',
             description: 'Get webhook URLs for a webhook node in a workflow',
             inputSchema: {
@@ -254,6 +303,15 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'list_executions':
+            return await this.handleListExecutions(request.params.arguments as { limit?: number; cursor?: string; workflowId?: string });
+
+          case 'get_execution':
+            return await this.handleGetExecution(request.params.arguments as { id: string });
+
+          case 'delete_execution':
+            return await this.handleDeleteExecution(request.params.arguments as { id: string });
 
           case 'webhook_urls':
             return await this.handleWebhookUrls(request.params.arguments as { workflowId: number; nodeId: string });
@@ -364,6 +422,42 @@ export class N8nMcpServer {
     };
   }
 
+  private async handleListExecutions(args: { limit?: number; cursor?: string; workflowId?: string }) {
+    const executions = await this.n8nClient.listExecutions(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(executions, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetExecution(args: { id: string }) {
+    const execution = await this.n8nClient.getExecution(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(execution, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleDeleteExecution(args: { id: string }) {
+    const result = await this.n8nClient.deleteExecution(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Execution ${args.id} deleted successfully`,
+        },
+      ],
+    };
+  }
+
   private async handleWebhookUrls(args: { workflowId: number; nodeId: string }) {
     const urls = await this.n8nClient.getWebhookUrls(args.workflowId, args.nodeId);
     return {
@@ -387,7 +481,6 @@ export class N8nMcpServer {
       ],
     };
   }
-
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
