@@ -125,11 +125,14 @@ export class WorkflowOperationsProcessor {
       throw new Error(`Node with ID "${operation.nodeId}" not found`);
     }
 
+    // Get the node name before deleting it
+    const nodeName = workflow.nodes[nodeIndex].name;
+
     // Remove the node
     workflow.nodes.splice(nodeIndex, 1);
 
     // Remove all connections involving this node
-    this.removeNodeConnections(workflow, operation.nodeId);
+    this.removeNodeConnections(workflow, nodeName);
   }
 
   private applyUpdateNode(workflow: N8nWorkflow, operation: UpdateNodeOperation): void {
@@ -306,17 +309,10 @@ export class WorkflowOperationsProcessor {
   /**
    * Remove all connections involving a specific node by name
    */
-  private removeNodeConnections(workflow: N8nWorkflow, nodeId: string): void {
+  private removeNodeConnections(workflow: N8nWorkflow, nodeName: string): void {
     if (!workflow.connections) {
       return;
     }
-
-    // Find the node name by ID
-    const node = workflow.nodes.find(n => n.id === nodeId);
-    if (!node) {
-      return;
-    }
-    const nodeName = node.name;
 
     // Remove outgoing connections (where this node is the source)
     delete workflow.connections[nodeName];
@@ -331,7 +327,7 @@ export class WorkflowOperationsProcessor {
             );
         }
         
-        // Clean up empty arrays
+        // Clean up empty arrays - need to filter from the end to avoid index issues
         workflow.connections[fromNodeName][outputType] = 
           workflow.connections[fromNodeName][outputType].filter(arr => arr.length > 0);
         
