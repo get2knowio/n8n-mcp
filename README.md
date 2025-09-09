@@ -1,5 +1,10 @@
 # n8n-mcp
 
+[![CI/CD](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/get2knowio/n8n-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/get2knowio/n8n-mcp)
+[![npm version](https://badge.fury.io/js/n8n-mcp.svg)](https://badge.fury.io/js/n8n-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An MCP (Model Context Protocol) server for managing n8n workflows. This server allows AI agents to create, retrieve, update, and manage n8n workflows through the n8n API.
 
 ## Features
@@ -103,10 +108,43 @@ npm run cli deactivate 1
 
 ## Development
 
+### Setup
 ```bash
-npm run dev  # Watch mode for development
-npm run build  # Build TypeScript
+npm install
+npm run build
 ```
+
+### Testing
+```bash
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Lint code (TypeScript type checking)
+npm run lint
+```
+
+### Scripts
+```bash
+npm run dev      # Watch mode for development
+npm run build    # Build TypeScript
+npm run test     # Run tests
+npm run lint     # TypeScript type checking
+```
+
+### Contributing
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+All contributions are welcome! Please make sure to update tests as appropriate and follow the existing code style.
 
 ## License
 
