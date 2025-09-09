@@ -56,3 +56,8 @@ export interface N8nConfig {
   username?: string;
   password?: string;
 }
+
+export interface N8nSourceControlPullResponse {
+  ok: boolean;
+  commit?: string;
+}

@@ -28,6 +28,7 @@ jest.mock('../n8n-client', () => ({
     deleteWorkflow: jest.fn(),
     activateWorkflow: jest.fn(),
     deactivateWorkflow: jest.fn(),
+    sourceControlPull: jest.fn(),
   }))
 }));
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { N8nWorkflow, N8nNode, N8nConnections, N8nConfig } from '../types';
+import { N8nWorkflow, N8nNode, N8nConnections, N8nConfig, N8nSourceControlPullResponse } from '../types';
 
 describe('Types', () => {
   describe('N8nWorkflow', () => {
@@ -140,6 +140,40 @@ describe('Types', () => {
 
       expect(config).toBeDefined();
       expect(config.baseUrl).toBe('http://localhost:5678');
+    });
+  });
+
+  describe('N8nSourceControlPullResponse', () => {
+    it('should define valid response with commit', () => {
+      const response: N8nSourceControlPullResponse = {
+        ok: true,
+        commit: 'abc123def456'
+      };
+
+      expect(response).toBeDefined();
+      expect(response.ok).toBe(true);
+      expect(response.commit).toBe('abc123def456');
+    });
+
+    it('should define valid response without commit', () => {
+      const response: N8nSourceControlPullResponse = {
+        ok: true
+      };
+
+      expect(response).toBeDefined();
+      expect(response.ok).toBe(true);
+      expect(response.commit).toBeUndefined();
+    });
+
+    it('should handle failure response', () => {
+      const response: N8nSourceControlPullResponse = {
+        ok: false,
+        commit: undefined
+      };
+
+      expect(response).toBeDefined();
+      expect(response.ok).toBe(false);
+      expect(response.commit).toBeUndefined();
     });
   });
 });

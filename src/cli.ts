@@ -18,6 +18,7 @@ Commands:
   delete <id>            Delete workflow by ID
   activate <id>          Activate workflow
   deactivate <id>        Deactivate workflow
+  source-control pull    Pull changes from source control
 
 Environment variables:
   N8N_BASE_URL           n8n instance URL (default: http://localhost:5678)
@@ -94,6 +95,17 @@ Environment variables:
         }
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
+        break;
+
+      case 'source-control':
+        const subCommand = args[1];
+        if (subCommand === 'pull') {
+          const result = await client.sourceControlPull();
+          console.log('Source control pull result:', JSON.stringify(result, null, 2));
+        } else {
+          console.error(`Unknown source-control subcommand: ${subCommand}`);
+          process.exit(1);
+        }
         break;
 
       default:

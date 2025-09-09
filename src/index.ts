@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nSourceControlPullResponse } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +189,14 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'source_control_pull',
+            description: 'Pull changes from source control to sync with remote',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
         ],
       };
     });
@@ -218,6 +226,9 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'source_control_pull':
+            return await this.handleSourceControlPull();
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -317,6 +328,18 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleSourceControlPull() {
+    const result = await this.n8nClient.sourceControlPull();
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Source control pull completed successfully:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };

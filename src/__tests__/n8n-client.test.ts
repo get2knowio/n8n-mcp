@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow } from '../types';
+import { N8nConfig, N8nWorkflow, N8nSourceControlPullResponse } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -243,6 +243,52 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('sourceControlPull', () => {
+    it('should pull changes from source control', async () => {
+      const mockPullResponse: N8nSourceControlPullResponse = {
+        ok: true,
+        commit: 'abc123def456'
+      };
+      const mockResponse = {
+        data: {
+          data: mockPullResponse
+        }
+      };
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await client.sourceControlPull();
+
+      expect(mockApi.post).toHaveBeenCalledWith('/source-control/pull');
+      expect(result).toEqual(mockPullResponse);
+    });
+
+    it('should handle source control pull without commit hash', async () => {
+      const mockPullResponse: N8nSourceControlPullResponse = {
+        ok: true
+      };
+      const mockResponse = {
+        data: {
+          data: mockPullResponse
+        }
+      };
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await client.sourceControlPull();
+
+      expect(mockApi.post).toHaveBeenCalledWith('/source-control/pull');
+      expect(result).toEqual(mockPullResponse);
+      expect(result.ok).toBe(true);
+      expect(result.commit).toBeUndefined();
+    });
+
+    it('should handle source control pull errors', async () => {
+      const error = new Error('Source control pull failed');
+      mockApi.post.mockRejectedValue(error);
+
+      await expect(client.sourceControlPull()).rejects.toThrow('Source control pull failed');
     });
   });
 });
