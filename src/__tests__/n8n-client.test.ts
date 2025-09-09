@@ -168,7 +168,7 @@ describe('N8nClient', () => {
 
       const result = await client.updateWorkflow(1, updateData);
 
-      expect(mockApi.patch).toHaveBeenCalledWith('/workflows/1', updateData);
+      expect(mockApi.patch).toHaveBeenCalledWith('/workflows/1', updateData, { headers: {} });
       expect(result).toEqual(updatedWorkflow);
     });
 

@@ -47,14 +47,33 @@ export class N8nClient {
     return response.data.data;
   }
 
+  async getWorkflowWithETag(id: number): Promise<{ workflow: N8nWorkflow; etag: string | null }> {
+    const response = await this.api.get<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`);
+    const etag = response.headers.etag || response.headers.ETag || null;
+    return { workflow: response.data.data, etag };
+  }
+
   async createWorkflow(workflow: Omit<N8nWorkflow, 'id'>): Promise<N8nWorkflow> {
     const response = await this.api.post<N8nApiResponse<N8nWorkflow>>('/workflows', workflow);
     return response.data.data;
   }
 
-  async updateWorkflow(id: number, workflow: Partial<N8nWorkflow>): Promise<N8nWorkflow> {
-    const response = await this.api.patch<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`, workflow);
-    return response.data.data;
+  async updateWorkflow(id: number, workflow: Partial<N8nWorkflow>, etag?: string): Promise<N8nWorkflow> {
+    const headers: Record<string, string> = {};
+    if (etag) {
+      headers['If-Match'] = etag;
+    }
+    
+    try {
+      const response = await this.api.patch<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`, workflow, { headers });
+      return response.data.data;
+    } catch (error: any) {
+      // Handle 412 Precondition Failed (concurrency conflict)
+      if (error.response?.status === 412) {
+        throw new Error(`Workflow ${id} was modified by another process. Please retry the operation.`);
+      }
+      throw error;
+    }
   }
 
   async deleteWorkflow(id: number): Promise<void> {
@@ -86,151 +105,167 @@ export class N8nClient {
     return [rightmostX + 200, 300];
   }
 
-  async createNode(request: CreateNodeRequest): Promise<CreateNodeResponse> {
-    const workflow = await this.getWorkflow(request.workflowId);
+  private async performWorkflowUpdate<T>(
+    workflowId: number,
+    operation: (workflow: N8nWorkflow) => void,
+    maxRetries: number = 3
+  ): Promise<void> {
+    let retries = 0;
     
-    const nodeId = this.generateNodeId();
-    const position = request.position || this.getDefaultPosition(workflow.nodes);
-    
-    const newNode: N8nNode = {
-      id: nodeId,
-      name: request.name || request.type.split('.').pop() || 'New Node',
-      type: request.type,
-      typeVersion: 1, // Default to version 1
-      position,
-      parameters: request.params || {},
-      credentials: request.credentials || {},
-    };
+    while (retries < maxRetries) {
+      try {
+        const { workflow, etag } = await this.getWorkflowWithETag(workflowId);
+        operation(workflow);
+        await this.updateWorkflow(workflowId, workflow, etag || undefined);
+        return;
+      } catch (error: any) {
+        if (error.message.includes('was modified by another process') && retries < maxRetries - 1) {
+          retries++;
+          // Add exponential backoff
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 100));
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
 
-    workflow.nodes.push(newNode);
+  async createNode(request: CreateNodeRequest): Promise<CreateNodeResponse> {
+    const nodeId = this.generateNodeId();
     
-    await this.updateWorkflow(request.workflowId, workflow);
+    await this.performWorkflowUpdate(request.workflowId, (workflow) => {
+      const position = request.position || this.getDefaultPosition(workflow.nodes);
+      
+      const newNode: N8nNode = {
+        id: nodeId,
+        name: request.name || request.type.split('.').pop() || 'New Node',
+        type: request.type,
+        typeVersion: 1, // Default to version 1
+        position,
+        parameters: request.params || {},
+        credentials: request.credentials || {},
+      };
+
+      workflow.nodes.push(newNode);
+    });
     
     return { nodeId };
   }
 
   async updateNode(request: UpdateNodeRequest): Promise<UpdateNodeResponse> {
-    const workflow = await this.getWorkflow(request.workflowId);
-    
-    const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
-    if (nodeIndex === -1) {
-      throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
-    }
+    await this.performWorkflowUpdate(request.workflowId, (workflow) => {
+      const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
+      if (nodeIndex === -1) {
+        throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
+      }
 
-    const node = workflow.nodes[nodeIndex];
-    
-    // Update the node properties
-    if (request.params !== undefined) {
-      node.parameters = { ...node.parameters, ...request.params };
-    }
-    if (request.credentials !== undefined) {
-      node.credentials = { ...node.credentials, ...request.credentials };
-    }
-    if (request.name !== undefined) {
-      node.name = request.name;
-    }
-    if (request.typeVersion !== undefined) {
-      node.typeVersion = request.typeVersion;
-    }
-
-    await this.updateWorkflow(request.workflowId, workflow);
+      const node = workflow.nodes[nodeIndex];
+      
+      // Update the node properties
+      if (request.params !== undefined) {
+        node.parameters = { ...node.parameters, ...request.params };
+      }
+      if (request.credentials !== undefined) {
+        node.credentials = { ...node.credentials, ...request.credentials };
+      }
+      if (request.name !== undefined) {
+        node.name = request.name;
+      }
+      if (request.typeVersion !== undefined) {
+        node.typeVersion = request.typeVersion;
+      }
+    });
     
     return { nodeId: request.nodeId };
   }
 
   async connectNodes(request: ConnectNodesRequest): Promise<ConnectNodesResponse> {
-    const workflow = await this.getWorkflow(request.workflowId);
-    
-    // Verify both nodes exist
-    const fromNode = workflow.nodes.find(node => node.id === request.from.nodeId);
-    const toNode = workflow.nodes.find(node => node.id === request.to.nodeId);
-    
-    if (!fromNode) {
-      throw new Error(`Source node ${request.from.nodeId} not found in workflow ${request.workflowId}`);
-    }
-    if (!toNode) {
-      throw new Error(`Target node ${request.to.nodeId} not found in workflow ${request.workflowId}`);
-    }
+    await this.performWorkflowUpdate(request.workflowId, (workflow) => {
+      // Verify both nodes exist
+      const fromNode = workflow.nodes.find(node => node.id === request.from.nodeId);
+      const toNode = workflow.nodes.find(node => node.id === request.to.nodeId);
+      
+      if (!fromNode) {
+        throw new Error(`Source node ${request.from.nodeId} not found in workflow ${request.workflowId}`);
+      }
+      if (!toNode) {
+        throw new Error(`Target node ${request.to.nodeId} not found in workflow ${request.workflowId}`);
+      }
 
-    // Initialize connections for the from node if it doesn't exist
-    if (!workflow.connections[fromNode.name]) {
-      workflow.connections[fromNode.name] = {};
-    }
-    
-    // Use 'main' as the default connection type
-    if (!workflow.connections[fromNode.name].main) {
-      workflow.connections[fromNode.name].main = [];
-    }
+      // Initialize connections for the from node if it doesn't exist
+      if (!workflow.connections[fromNode.name]) {
+        workflow.connections[fromNode.name] = {};
+      }
+      
+      // Use 'main' as the default connection type
+      if (!workflow.connections[fromNode.name].main) {
+        workflow.connections[fromNode.name].main = [];
+      }
 
-    // Ensure the output index exists
-    const outputIndex = request.from.outputIndex || 0;
-    if (!workflow.connections[fromNode.name].main[outputIndex]) {
-      workflow.connections[fromNode.name].main[outputIndex] = [];
-    }
+      // Ensure the output index exists
+      const outputIndex = request.from.outputIndex || 0;
+      if (!workflow.connections[fromNode.name].main[outputIndex]) {
+        workflow.connections[fromNode.name].main[outputIndex] = [];
+      }
 
-    // Add the connection
-    const connection = {
-      node: toNode.name,
-      type: 'main',
-      index: request.to.inputIndex || 0,
-    };
+      // Add the connection
+      const connection = {
+        node: toNode.name,
+        type: 'main',
+        index: request.to.inputIndex || 0,
+      };
 
-    // Check if connection already exists
-    const existingConnection = workflow.connections[fromNode.name].main[outputIndex]
-      .find(conn => conn.node === connection.node && conn.index === connection.index);
-    
-    if (!existingConnection) {
-      workflow.connections[fromNode.name].main[outputIndex].push(connection);
-    }
-
-    await this.updateWorkflow(request.workflowId, workflow);
+      // Check if connection already exists
+      const existingConnection = workflow.connections[fromNode.name].main[outputIndex]
+        .find(conn => conn.node === connection.node && conn.index === connection.index);
+      
+      if (!existingConnection) {
+        workflow.connections[fromNode.name].main[outputIndex].push(connection);
+      }
+    });
     
     return { ok: true };
   }
 
   async deleteNode(request: DeleteNodeRequest): Promise<DeleteNodeResponse> {
-    const workflow = await this.getWorkflow(request.workflowId);
-    
-    const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
-    if (nodeIndex === -1) {
-      throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
-    }
+    await this.performWorkflowUpdate(request.workflowId, (workflow) => {
+      const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
+      if (nodeIndex === -1) {
+        throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
+      }
 
-    const nodeName = workflow.nodes[nodeIndex].name;
-    
-    // Remove the node
-    workflow.nodes.splice(nodeIndex, 1);
-    
-    // Remove all connections to and from this node
-    // Remove outgoing connections
-    delete workflow.connections[nodeName];
-    
-    // Remove incoming connections
-    Object.keys(workflow.connections).forEach(sourceNodeName => {
-      Object.keys(workflow.connections[sourceNodeName]).forEach(outputType => {
-        workflow.connections[sourceNodeName][outputType] = 
-          workflow.connections[sourceNodeName][outputType].map(outputArray => 
-            outputArray.filter(conn => conn.node !== nodeName)
-          );
+      const nodeName = workflow.nodes[nodeIndex].name;
+      
+      // Remove the node
+      workflow.nodes.splice(nodeIndex, 1);
+      
+      // Remove all connections to and from this node
+      // Remove outgoing connections
+      delete workflow.connections[nodeName];
+      
+      // Remove incoming connections
+      Object.keys(workflow.connections).forEach(sourceNodeName => {
+        Object.keys(workflow.connections[sourceNodeName]).forEach(outputType => {
+          workflow.connections[sourceNodeName][outputType] = 
+            workflow.connections[sourceNodeName][outputType].map(outputArray => 
+              outputArray.filter(conn => conn.node !== nodeName)
+            );
+        });
       });
     });
-
-    await this.updateWorkflow(request.workflowId, workflow);
     
     return { ok: true };
   }
 
   async setNodePosition(request: SetNodePositionRequest): Promise<SetNodePositionResponse> {
-    const workflow = await this.getWorkflow(request.workflowId);
-    
-    const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
-    if (nodeIndex === -1) {
-      throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
-    }
+    await this.performWorkflowUpdate(request.workflowId, (workflow) => {
+      const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
+      if (nodeIndex === -1) {
+        throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
+      }
 
-    workflow.nodes[nodeIndex].position = [request.x, request.y];
-    
-    await this.updateWorkflow(request.workflowId, workflow);
+      workflow.nodes[nodeIndex].position = [request.x, request.y];
+    });
     
     return { ok: true };
   }
