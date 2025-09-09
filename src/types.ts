@@ -34,11 +34,11 @@ export interface N8nNode {
 
 export interface N8nConnections {
   [key: string]: {
-    [key: string]: Array<{
+    [key: string]: Array<Array<{
       node: string;
       type: string;
       index: number;
-    }>;
+    }>>;
   };
 }
 
@@ -55,4 +55,67 @@ export interface N8nConfig {
   apiKey?: string;
   username?: string;
   password?: string;
+}
+
+// Types for granular node operations
+export interface CreateNodeRequest {
+  workflowId: number;
+  type: string;
+  name?: string;
+  params?: Record<string, any>;
+  position?: [number, number];
+  credentials?: Record<string, string>;
+}
+
+export interface CreateNodeResponse {
+  nodeId: string;
+}
+
+export interface UpdateNodeRequest {
+  workflowId: number;
+  nodeId: string;
+  params?: Record<string, any>;
+  credentials?: Record<string, string>;
+  name?: string;
+  typeVersion?: number;
+}
+
+export interface UpdateNodeResponse {
+  nodeId: string;
+}
+
+export interface ConnectNodesRequest {
+  workflowId: number;
+  from: {
+    nodeId: string;
+    outputIndex?: number;
+  };
+  to: {
+    nodeId: string;
+    inputIndex?: number;
+  };
+}
+
+export interface ConnectNodesResponse {
+  ok: true;
+}
+
+export interface DeleteNodeRequest {
+  workflowId: number;
+  nodeId: string;
+}
+
+export interface DeleteNodeResponse {
+  ok: true;
+}
+
+export interface SetNodePositionRequest {
+  workflowId: number;
+  nodeId: string;
+  x: number;
+  y: number;
+}
+
+export interface SetNodePositionResponse {
+  ok: true;
 }

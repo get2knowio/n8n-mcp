@@ -7,7 +7,15 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { 
+  N8nConfig, 
+  N8nWorkflow,
+  CreateNodeRequest,
+  UpdateNodeRequest,
+  ConnectNodesRequest,
+  DeleteNodeRequest,
+  SetNodePositionRequest
+} from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +197,165 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'create_node',
+            description: 'Create a new node in an existing n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                type: {
+                  type: 'string',
+                  description: 'The node type (e.g., n8n-nodes-base.webhook)',
+                },
+                name: {
+                  type: 'string',
+                  description: 'Optional name for the node',
+                },
+                params: {
+                  type: 'object',
+                  description: 'Optional node parameters',
+                },
+                position: {
+                  type: 'array',
+                  description: 'Optional [x, y] position for the node',
+                  items: { type: 'number' },
+                  minItems: 2,
+                  maxItems: 2,
+                },
+                credentials: {
+                  type: 'object',
+                  description: 'Optional credentials configuration',
+                },
+              },
+              required: ['workflowId', 'type'],
+            },
+          },
+          {
+            name: 'update_node',
+            description: 'Update an existing node in an n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                nodeId: {
+                  type: 'string',
+                  description: 'The node ID to update',
+                },
+                params: {
+                  type: 'object',
+                  description: 'Optional node parameters to update',
+                },
+                credentials: {
+                  type: 'object',
+                  description: 'Optional credentials to update',
+                },
+                name: {
+                  type: 'string',
+                  description: 'Optional new name for the node',
+                },
+                typeVersion: {
+                  type: 'number',
+                  description: 'Optional type version to update',
+                },
+              },
+              required: ['workflowId', 'nodeId'],
+            },
+          },
+          {
+            name: 'connect_nodes',
+            description: 'Connect two nodes in an n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                from: {
+                  type: 'object',
+                  description: 'Source node connection info',
+                  properties: {
+                    nodeId: {
+                      type: 'string',
+                      description: 'Source node ID',
+                    },
+                    outputIndex: {
+                      type: 'number',
+                      description: 'Optional output index (default: 0)',
+                    },
+                  },
+                  required: ['nodeId'],
+                },
+                to: {
+                  type: 'object',
+                  description: 'Target node connection info',
+                  properties: {
+                    nodeId: {
+                      type: 'string',
+                      description: 'Target node ID',
+                    },
+                    inputIndex: {
+                      type: 'number',
+                      description: 'Optional input index (default: 0)',
+                    },
+                  },
+                  required: ['nodeId'],
+                },
+              },
+              required: ['workflowId', 'from', 'to'],
+            },
+          },
+          {
+            name: 'delete_node',
+            description: 'Delete a node from an n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                nodeId: {
+                  type: 'string',
+                  description: 'The node ID to delete',
+                },
+              },
+              required: ['workflowId', 'nodeId'],
+            },
+          },
+          {
+            name: 'set_node_position',
+            description: 'Set the position of a node in an n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                nodeId: {
+                  type: 'string',
+                  description: 'The node ID',
+                },
+                x: {
+                  type: 'number',
+                  description: 'X coordinate',
+                },
+                y: {
+                  type: 'number',
+                  description: 'Y coordinate',
+                },
+              },
+              required: ['workflowId', 'nodeId', 'x', 'y'],
+            },
+          },
         ],
       };
     });
@@ -218,6 +385,21 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'create_node':
+            return await this.handleCreateNode(request.params.arguments as unknown as CreateNodeRequest);
+
+          case 'update_node':
+            return await this.handleUpdateNode(request.params.arguments as unknown as UpdateNodeRequest);
+
+          case 'connect_nodes':
+            return await this.handleConnectNodes(request.params.arguments as unknown as ConnectNodesRequest);
+
+          case 'delete_node':
+            return await this.handleDeleteNode(request.params.arguments as unknown as DeleteNodeRequest);
+
+          case 'set_node_position':
+            return await this.handleSetNodePosition(request.params.arguments as unknown as SetNodePositionRequest);
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -317,6 +499,66 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleCreateNode(args: CreateNodeRequest) {
+    const result = await this.n8nClient.createNode(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Node created successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleUpdateNode(args: UpdateNodeRequest) {
+    const result = await this.n8nClient.updateNode(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Node updated successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleConnectNodes(args: ConnectNodesRequest) {
+    const result = await this.n8nClient.connectNodes(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Nodes connected successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleDeleteNode(args: DeleteNodeRequest) {
+    const result = await this.n8nClient.deleteNode(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Node deleted successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleSetNodePosition(args: SetNodePositionRequest) {
+    const result = await this.n8nClient.setNodePosition(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Node position updated successfully:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
