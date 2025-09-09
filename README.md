@@ -45,6 +45,28 @@ npm start
 
 The server runs on stdio and implements the MCP protocol for integration with AI agents.
 
+### As a CLI Tool
+
+For testing and development, you can use the CLI interface:
+
+```bash
+# List all workflows
+npm run cli list
+
+# Get a specific workflow
+npm run cli get 1
+
+# Create a workflow from JSON file
+npm run cli create examples/example-workflow.json
+
+# Delete a workflow
+npm run cli delete 1
+
+# Activate/deactivate workflows
+npm run cli activate 1
+npm run cli deactivate 1
+```
+
 ### Available Tools
 
 1. **list_workflows** - List all workflows

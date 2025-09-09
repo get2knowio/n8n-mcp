@@ -9,7 +9,7 @@ import {
 import { N8nClient } from './n8n-client.js';
 import { N8nConfig, N8nWorkflow } from './types.js';
 
-class N8nMcpServer {
+export class N8nMcpServer {
   private server: Server;
   private n8nClient!: N8nClient;
 
@@ -36,7 +36,12 @@ class N8nMcpServer {
       console.error('Warning: No authentication configured. Set N8N_API_KEY or N8N_USERNAME/N8N_PASSWORD environment variables.');
     }
 
+    if (!config.baseUrl) {
+      throw new Error('N8N_BASE_URL must be configured');
+    }
+
     this.n8nClient = new N8nClient(config);
+    console.error(`N8n MCP server configured for: ${config.baseUrl}`);
   }
 
   private setupToolHandlers() {
@@ -190,6 +195,8 @@ class N8nMcpServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
+        console.error(`Executing tool: ${request.params.name}`);
+        
         switch (request.params.name) {
           case 'list_workflows':
             return await this.handleListWorkflows();
@@ -217,6 +224,7 @@ class N8nMcpServer {
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`Tool execution failed: ${errorMessage}`);
         return {
           content: [
             {
