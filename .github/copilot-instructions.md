@@ -131,7 +131,7 @@ npm run test    # Run test suite
 - **Runtime**: Node.js (v18.x, 20.x, 22.x supported)
 - **Language**: TypeScript with ESNext modules
 - **Testing**: Jest with ts-jest preset
-- **MCP SDK**: @modelcontextprotocol/sdk v0.4.0
+- **MCP SDK**: @modelcontextprotocol/sdk v1.17.5
 - **HTTP Client**: axios v1.6.0
 
 ### Configuration Files
