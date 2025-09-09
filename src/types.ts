@@ -56,3 +56,20 @@ export interface N8nConfig {
   username?: string;
   password?: string;
 }
+
+export interface N8nCredential {
+  id: string;
+  name: string;
+  type: string;
+  nodesAccess?: Array<{
+    nodeType: string;
+  }>;
+  sharedWith?: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
+export interface N8nCredentialsListResponse {
+  data: N8nCredential[];
+}

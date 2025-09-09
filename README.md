@@ -15,6 +15,8 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Credential Management**: List credentials and resolve credential aliases
+- **Credential Aliasing**: Use human-friendly names for credentials in workflows
 
 ## Installation
 
@@ -89,9 +91,12 @@ npm run cli deactivate 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
+8. **list_credentials** - List all credentials
+9. **resolve_credential_alias** - Resolve a credential alias to its ID
 
 ## Example Workflow Creation
 
+### Basic Workflow with Credential IDs
 ```json
 {
   "name": "Example Workflow",
@@ -113,6 +118,68 @@ npm run cli deactivate 1
   "tags": ["example"]
 }
 ```
+
+### Workflow with Credential Aliases
+You can now use human-friendly credential names instead of IDs:
+
+```json
+{
+  "name": "HTTP Request Workflow",
+  "nodes": [
+    {
+      "id": "http-request",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {
+        "url": "https://api.example.com/data",
+        "method": "GET"
+      },
+      "credentials": {
+        "httpBasicAuth": "my-api-credentials"
+      }
+    }
+  ],
+  "connections": {},
+  "active": false,
+  "tags": ["example", "api"]
+}
+```
+
+The system will automatically resolve `"my-api-credentials"` to the appropriate credential ID before creating or updating the workflow.
+
+## Credential Management
+
+### Listing Credentials
+Use the `list_credentials` tool to see all available credentials in your n8n instance:
+
+```bash
+# Through MCP tools
+{
+  "tool": "list_credentials",
+  "arguments": {}
+}
+```
+
+### Resolving Credential Aliases
+Use the `resolve_credential_alias` tool to resolve a credential name to its ID:
+
+```bash
+# Through MCP tools
+{
+  "tool": "resolve_credential_alias", 
+  "arguments": {
+    "alias": "my-api-credentials"
+  }
+}
+```
+
+### Alias Resolution Rules
+- **Unique Match**: If exactly one credential matches the alias, it returns the credential ID
+- **No Match**: Throws an error if no credentials match the alias
+- **Multiple Matches**: Throws an error if multiple credentials have the same name
+- **Numeric Values**: Credential values that are all digits are treated as IDs and left unchanged
 
 ## Development
 
