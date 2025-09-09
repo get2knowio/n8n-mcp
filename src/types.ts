@@ -63,9 +63,71 @@ export interface N8nTagsListResponse {
   nextCursor?: string;
 }
 
+export interface N8nVariable {
+  id?: string;
+  key: string;
+  value: string;
+}
+
+export interface N8nVariablesListResponse {
+  data: N8nVariable[];
+  nextCursor?: string;
+}
+
 export interface N8nConfig {
   baseUrl: string;
   apiKey?: string;
   username?: string;
   password?: string;
+}
+
+export interface N8nExecution {
+  id: string;
+  finished: boolean;
+  mode: string;
+  retryOf?: string;
+  retrySuccessId?: string;
+  startedAt: string;
+  stoppedAt?: string;
+  workflowId: string;
+  waitTill?: string;
+  status: 'new' | 'running' | 'success' | 'failed' | 'canceled' | 'crashed' | 'waiting';
+  data?: {
+    resultData?: {
+      runData?: Record<string, any>;
+      lastNodeExecuted?: string;
+      error?: {
+        name?: string;
+        message?: string;
+        description?: string;
+        stack?: string;
+      };
+    };
+    executionData?: {
+      contextData?: Record<string, any>;
+      nodeExecutionStack?: any[];
+      metadata?: Record<string, any>;
+      waitingExecution?: Record<string, any>;
+      waitingExecutionSource?: Record<string, any>;
+    };
+  };
+}
+
+export interface N8nExecutionsListResponse {
+  data: N8nExecution[];
+  nextCursor?: string;
+}
+
+export interface N8nExecutionDeleteResponse {
+  success: boolean;
+}
+
+export interface N8nWebhookUrls {
+  testUrl: string;
+  productionUrl: string;
+}
+
+export interface N8nExecutionResponse {
+  executionId: string;
+  status: string;
 }

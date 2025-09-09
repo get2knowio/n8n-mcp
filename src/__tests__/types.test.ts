@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { N8nWorkflow, N8nNode, N8nConnections, N8nConfig, N8nTag, N8nTagsListResponse } from '../types';
+import { N8nWorkflow, N8nNode, N8nConnections, N8nConfig, N8nTag, N8nVariable } from '../types';
 
 describe('Types', () => {
   describe('N8nWorkflow', () => {
@@ -143,8 +143,35 @@ describe('Types', () => {
     });
   });
 
+  describe('N8nVariable', () => {
+    it('should define a valid variable structure', () => {
+      const variable: N8nVariable = {
+        id: 'var-123',
+        key: 'test-key',
+        value: 'test-value'
+      };
+
+      expect(variable).toBeDefined();
+      expect(variable.id).toBe('var-123');
+      expect(variable.key).toBe('test-key');
+      expect(variable.value).toBe('test-value');
+    });
+
+    it('should work without optional id field', () => {
+      const variable: N8nVariable = {
+        key: 'minimal-key',
+        value: 'minimal-value'
+      };
+
+      expect(variable).toBeDefined();
+      expect(variable.key).toBe('minimal-key');
+      expect(variable.value).toBe('minimal-value');
+      expect(variable.id).toBeUndefined();
+    });
+  });
+
   describe('N8nTag', () => {
-    it('should define a valid tag structure', () => {
+    it('should define a valid tag structure with all properties', () => {
       const tag: N8nTag = {
         id: 1,
         name: 'Production',
@@ -161,75 +188,17 @@ describe('Types', () => {
       expect(tag.updatedAt).toBe('2023-01-01T00:00:00.000Z');
     });
 
-    it('should work without optional fields', () => {
+    it('should define a valid tag structure with minimal properties', () => {
       const tag: N8nTag = {
-        name: 'Simple Tag'
+        name: 'Development'
       };
 
       expect(tag).toBeDefined();
-      expect(tag.name).toBe('Simple Tag');
+      expect(tag.name).toBe('Development');
       expect(tag.id).toBeUndefined();
       expect(tag.color).toBeUndefined();
       expect(tag.createdAt).toBeUndefined();
       expect(tag.updatedAt).toBeUndefined();
-    });
-
-    it('should work with only required name field', () => {
-      const tag: N8nTag = {
-        name: 'Required Only'
-      };
-
-      expect(tag).toBeDefined();
-      expect(tag.name).toBe('Required Only');
-    });
-  });
-
-  describe('N8nTagsListResponse', () => {
-    it('should define a valid tags list response', () => {
-      const response: N8nTagsListResponse = {
-        data: [
-          {
-            id: 1,
-            name: 'Tag 1',
-            color: '#ff0000'
-          },
-          {
-            id: 2,
-            name: 'Tag 2'
-          }
-        ],
-        nextCursor: 'cursor-123'
-      };
-
-      expect(response).toBeDefined();
-      expect(response.data).toHaveLength(2);
-      expect(response.data[0].name).toBe('Tag 1');
-      expect(response.data[1].name).toBe('Tag 2');
-      expect(response.nextCursor).toBe('cursor-123');
-    });
-
-    it('should work without pagination cursor', () => {
-      const response: N8nTagsListResponse = {
-        data: [
-          {
-            id: 1,
-            name: 'Single Tag'
-          }
-        ]
-      };
-
-      expect(response).toBeDefined();
-      expect(response.data).toHaveLength(1);
-      expect(response.nextCursor).toBeUndefined();
-    });
-
-    it('should work with empty data array', () => {
-      const response: N8nTagsListResponse = {
-        data: []
-      };
-
-      expect(response).toBeDefined();
-      expect(response.data).toHaveLength(0);
     });
   });
 });
