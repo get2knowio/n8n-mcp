@@ -18,6 +18,7 @@ Commands:
   delete <id>            Delete workflow by ID
   activate <id>          Activate workflow
   deactivate <id>        Deactivate workflow
+  get-credential-schema <type>  Get credential schema by type name
 
 Environment variables:
   N8N_BASE_URL           n8n instance URL (default: http://localhost:5678)
@@ -94,6 +95,16 @@ Environment variables:
         }
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
+        break;
+
+      case 'get-credential-schema':
+        const credentialType = args[1];
+        if (!credentialType) {
+          console.error('Error: Credential type name required');
+          process.exit(1);
+        }
+        const schema = await client.getCredentialSchema(credentialType);
+        console.log(JSON.stringify(schema, null, 2));
         break;
 
       default:
