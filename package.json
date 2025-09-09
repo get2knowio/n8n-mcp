@@ -1,5 +1,5 @@
 {
-  "name": "n8n-mcp",
+  "name": "@get2knowio/n8n-mcp",
   "version": "1.0.0",
   "description": "MCP server for n8n workflow management",
   "main": "dist/index.js",
@@ -18,6 +18,13 @@
   "keywords": ["n8n", "mcp", "workflow", "automation"],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/get2knowio/n8n-mcp.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
     "axios": "^1.6.0"

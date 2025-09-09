@@ -18,7 +18,15 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 
 ## Installation
 
+### From GitHub Packages
 ```bash
+npm install @get2knowio/n8n-mcp
+```
+
+### From Source
+```bash
+git clone https://github.com/get2knowio/n8n-mcp.git
+cd n8n-mcp
 npm install
 npm run build
 ```
@@ -145,6 +153,20 @@ npm run lint     # TypeScript type checking
 5. Open a Pull Request
 
 All contributions are welcome! Please make sure to update tests as appropriate and follow the existing code style.
+
+## Releases
+
+This project uses automated releases. When a new release is published on GitHub:
+
+1. The release workflow automatically triggers
+2. The package is built and tested
+3. If all tests pass, the package is published to GitHub Packages
+4. The package can then be installed using: `npm install @get2knowio/n8n-mcp`
+
+To create a new release:
+1. Update the version in `package.json`
+2. Create a new release on GitHub with a tag matching the version
+3. The automated workflow will handle the rest
 
 ## License
 
