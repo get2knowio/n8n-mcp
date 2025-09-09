@@ -50,6 +50,26 @@ export interface N8nWorkflowsListResponse {
   data: N8nWorkflow[];
 }
 
+export interface N8nCredential {
+  id?: number;
+  name: string;
+  type: string;
+  data?: Record<string, any>;
+  projectId?: string;
+  ownerId?: string;
+}
+
+export interface TransferRequest {
+  projectId?: string;
+  newOwnerId?: string;
+}
+
+export interface TransferResponse {
+  id: number;
+  projectId?: string;
+  newOwnerId?: string;
+}
+
 export interface N8nConfig {
   baseUrl: string;
   apiKey?: string;

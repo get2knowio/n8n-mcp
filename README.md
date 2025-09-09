@@ -15,6 +15,8 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Transfer Workflows**: Move workflows across projects or owners
+- **Transfer Credentials**: Move credentials across projects or owners
 
 ## Installation
 
@@ -78,6 +80,11 @@ npm run cli delete 1
 # Activate/deactivate workflows
 npm run cli activate 1
 npm run cli deactivate 1
+
+# Transfer workflows between projects/owners (Enterprise feature)
+# Note: Transfer operations require appropriate permissions and enterprise n8n setup
+npm run cli transfer_workflow 1 --project-id "project-123"
+npm run cli transfer_credential 2 --new-owner-id "user-456"
 ```
 
 ### Available Tools
@@ -89,6 +96,8 @@ npm run cli deactivate 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
+8. **transfer_workflow** - Transfer a workflow to a different project or owner
+9. **transfer_credential** - Transfer a credential to a different project or owner
 
 ## Example Workflow Creation
 
@@ -112,6 +121,50 @@ npm run cli deactivate 1
   "active": false,
   "tags": ["example"]
 }
+```
+
+## Transfer Operations (Enterprise)
+
+The transfer tools allow moving workflows and credentials across projects and owners in enterprise n8n setups:
+
+### Transfer Workflow
+```javascript
+// Transfer to a different project
+{
+  "id": 1,
+  "projectId": "project-123"
+}
+
+// Transfer to a different owner
+{
+  "id": 1,
+  "newOwnerId": "user-456"
+}
+
+// Transfer to both different project and owner
+{
+  "id": 1,
+  "projectId": "project-123",
+  "newOwnerId": "user-456"
+}
+```
+
+### Transfer Credential
+```javascript
+// Same structure as workflow transfer
+{
+  "id": 2,
+  "projectId": "project-789",
+  "newOwnerId": "user-123"
+}
+```
+
+**Note**: Transfer operations require:
+- Enterprise n8n installation with project/ownership features enabled
+- Appropriate permissions for the user performing the transfer
+- Valid target project IDs and user IDs
+
+Permission errors will be returned with clear error messages if the operation is not allowed.
 ```
 
 ## Development

@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse } from './types.js';
+import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nCredential, TransferRequest, TransferResponse } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
@@ -52,6 +52,16 @@ export class N8nClient {
 
   async deactivateWorkflow(id: number): Promise<N8nWorkflow> {
     const response = await this.api.post<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}/deactivate`);
+    return response.data.data;
+  }
+
+  async transferWorkflow(id: number, transferData: TransferRequest): Promise<TransferResponse> {
+    const response = await this.api.put<N8nApiResponse<TransferResponse>>(`/workflows/${id}/transfer`, transferData);
+    return response.data.data;
+  }
+
+  async transferCredential(id: number, transferData: TransferRequest): Promise<TransferResponse> {
+    const response = await this.api.put<N8nApiResponse<TransferResponse>>(`/credentials/${id}/transfer`, transferData);
     return response.data.data;
   }
 }

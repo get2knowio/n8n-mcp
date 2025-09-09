@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { N8nConfig, N8nWorkflow, TransferRequest } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +189,50 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'transfer_workflow',
+            description: 'Transfer an n8n workflow to a different project or owner',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'The target project ID (optional)',
+                },
+                newOwnerId: {
+                  type: 'string',
+                  description: 'The new owner ID (optional)',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'transfer_credential',
+            description: 'Transfer an n8n credential to a different project or owner',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The credential ID',
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'The target project ID (optional)',
+                },
+                newOwnerId: {
+                  type: 'string',
+                  description: 'The new owner ID (optional)',
+                },
+              },
+              required: ['id'],
+            },
+          },
         ],
       };
     });
@@ -218,6 +262,12 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'transfer_workflow':
+            return await this.handleTransferWorkflow(request.params.arguments as unknown as { id: number } & TransferRequest);
+
+          case 'transfer_credential':
+            return await this.handleTransferCredential(request.params.arguments as unknown as { id: number } & TransferRequest);
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -317,6 +367,32 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleTransferWorkflow(args: { id: number } & TransferRequest) {
+    const { id, ...transferData } = args;
+    const result = await this.n8nClient.transferWorkflow(id, transferData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Workflow transferred successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleTransferCredential(args: { id: number } & TransferRequest) {
+    const { id, ...transferData } = args;
+    const result = await this.n8nClient.transferCredential(id, transferData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Credential transferred successfully:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };

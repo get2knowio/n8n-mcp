@@ -46,6 +46,7 @@ describe('N8nClient', () => {
       post: jest.fn(),
       patch: jest.fn(),
       delete: jest.fn(),
+      put: jest.fn(),
     };
 
     mockedAxios.create.mockReturnValue(mockApi);
@@ -243,6 +244,138 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('transferWorkflow', () => {
+    it('should transfer a workflow with projectId', async () => {
+      const transferData = { projectId: 'project-123' };
+      const transferResponse = { id: 1, projectId: 'project-123' };
+      const mockResponse = {
+        data: {
+          data: transferResponse
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.transferWorkflow(1, transferData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1/transfer', transferData);
+      expect(result).toEqual(transferResponse);
+    });
+
+    it('should transfer a workflow with newOwnerId', async () => {
+      const transferData = { newOwnerId: 'user-456' };
+      const transferResponse = { id: 1, newOwnerId: 'user-456' };
+      const mockResponse = {
+        data: {
+          data: transferResponse
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.transferWorkflow(1, transferData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1/transfer', transferData);
+      expect(result).toEqual(transferResponse);
+    });
+
+    it('should transfer a workflow with both projectId and newOwnerId', async () => {
+      const transferData = { projectId: 'project-123', newOwnerId: 'user-456' };
+      const transferResponse = { id: 1, projectId: 'project-123', newOwnerId: 'user-456' };
+      const mockResponse = {
+        data: {
+          data: transferResponse
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.transferWorkflow(1, transferData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1/transfer', transferData);
+      expect(result).toEqual(transferResponse);
+    });
+
+    it('should handle transfer errors', async () => {
+      const transferData = { projectId: 'project-123' };
+      const error = new Error('Transfer failed');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.transferWorkflow(1, transferData)).rejects.toThrow('Transfer failed');
+    });
+
+    it('should handle permission errors with clear message', async () => {
+      const transferData = { projectId: 'project-123' };
+      const error = new Error('Permission denied');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.transferWorkflow(1, transferData)).rejects.toThrow('Permission denied');
+    });
+  });
+
+  describe('transferCredential', () => {
+    it('should transfer a credential with projectId', async () => {
+      const transferData = { projectId: 'project-123' };
+      const transferResponse = { id: 1, projectId: 'project-123' };
+      const mockResponse = {
+        data: {
+          data: transferResponse
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.transferCredential(1, transferData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/credentials/1/transfer', transferData);
+      expect(result).toEqual(transferResponse);
+    });
+
+    it('should transfer a credential with newOwnerId', async () => {
+      const transferData = { newOwnerId: 'user-456' };
+      const transferResponse = { id: 1, newOwnerId: 'user-456' };
+      const mockResponse = {
+        data: {
+          data: transferResponse
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.transferCredential(1, transferData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/credentials/1/transfer', transferData);
+      expect(result).toEqual(transferResponse);
+    });
+
+    it('should transfer a credential with both projectId and newOwnerId', async () => {
+      const transferData = { projectId: 'project-123', newOwnerId: 'user-456' };
+      const transferResponse = { id: 1, projectId: 'project-123', newOwnerId: 'user-456' };
+      const mockResponse = {
+        data: {
+          data: transferResponse
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.transferCredential(1, transferData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/credentials/1/transfer', transferData);
+      expect(result).toEqual(transferResponse);
+    });
+
+    it('should handle transfer errors', async () => {
+      const transferData = { projectId: 'project-123' };
+      const error = new Error('Transfer failed');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.transferCredential(1, transferData)).rejects.toThrow('Transfer failed');
+    });
+
+    it('should handle permission errors with clear message', async () => {
+      const transferData = { projectId: 'project-123' };
+      const error = new Error('Permission denied');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.transferCredential(1, transferData)).rejects.toThrow('Permission denied');
     });
   });
 });
