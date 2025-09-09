@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nTag } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +189,41 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'list_workflow_tags',
+            description: 'List tags for a specific n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+              },
+              required: ['workflowId'],
+            },
+          },
+          {
+            name: 'set_workflow_tags',
+            description: 'Set tags for a specific n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                tagIds: {
+                  type: 'array',
+                  description: 'Array of tag IDs to set on the workflow',
+                  items: {
+                    type: 'string',
+                  },
+                },
+              },
+              required: ['workflowId', 'tagIds'],
+            },
+          },
         ],
       };
     });
@@ -218,6 +253,12 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'list_workflow_tags':
+            return await this.handleListWorkflowTags(request.params.arguments as { workflowId: number });
+
+          case 'set_workflow_tags':
+            return await this.handleSetWorkflowTags(request.params.arguments as { workflowId: number; tagIds: string[] });
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -317,6 +358,30 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleListWorkflowTags(args: { workflowId: number }) {
+    const tags = await this.n8nClient.listWorkflowTags(args.workflowId);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tags, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleSetWorkflowTags(args: { workflowId: number; tagIds: string[] }) {
+    const tags = await this.n8nClient.setWorkflowTags(args.workflowId, args.tagIds);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Workflow tags updated successfully:\n${JSON.stringify(tags, null, 2)}`,
         },
       ],
     };

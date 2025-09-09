@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow } from '../types';
+import { N8nConfig, N8nWorkflow, N8nTag } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -35,6 +35,19 @@ describe('N8nClient', () => {
     tags: ['test']
   };
 
+  const mockTags: N8nTag[] = [
+    {
+      id: 'tag1',
+      name: 'Production',
+      color: '#ff0000'
+    },
+    {
+      id: 'tag2', 
+      name: 'Testing',
+      color: '#00ff00'
+    }
+  ];
+
   beforeEach(() => {
     mockApi = {
       defaults: {
@@ -46,6 +59,7 @@ describe('N8nClient', () => {
       post: jest.fn(),
       patch: jest.fn(),
       delete: jest.fn(),
+      put: jest.fn(),
     };
 
     mockedAxios.create.mockReturnValue(mockApi);
@@ -243,6 +257,54 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('listWorkflowTags', () => {
+    it('should return list of workflow tags', async () => {
+      const mockResponse = {
+        data: {
+          data: mockTags
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listWorkflowTags(1);
+
+      expect(mockApi.get).toHaveBeenCalledWith('/workflows/1/tags');
+      expect(result).toEqual(mockTags);
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('API Error');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.listWorkflowTags(1)).rejects.toThrow('API Error');
+    });
+  });
+
+  describe('setWorkflowTags', () => {
+    it('should set workflow tags', async () => {
+      const tagIds = ['tag1', 'tag2'];
+      const mockResponse = {
+        data: {
+          data: mockTags
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.setWorkflowTags(1, tagIds);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1/tags', { tagIds });
+      expect(result).toEqual(mockTags);
+    });
+
+    it('should handle set tags errors', async () => {
+      const tagIds = ['tag1', 'tag2'];
+      const error = new Error('Set tags failed');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.setWorkflowTags(1, tagIds)).rejects.toThrow('Set tags failed');
     });
   });
 });

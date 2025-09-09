@@ -50,6 +50,14 @@ export interface N8nWorkflowsListResponse {
   data: N8nWorkflow[];
 }
 
+export interface N8nTag {
+  id: string;
+  name: string;
+  color?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface N8nConfig {
   baseUrl: string;
   apiKey?: string;

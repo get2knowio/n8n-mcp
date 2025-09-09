@@ -78,6 +78,12 @@ npm run cli delete 1
 # Activate/deactivate workflows
 npm run cli activate 1
 npm run cli deactivate 1
+
+# List workflow tags
+npm run cli workflows tags 1
+
+# Set workflow tags
+npm run cli workflows set-tags 1 --tags tag1,tag2,tag3
 ```
 
 ### Available Tools
@@ -89,6 +95,8 @@ npm run cli deactivate 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
+8. **list_workflow_tags** - List tags for a specific workflow
+9. **set_workflow_tags** - Set tags for a specific workflow
 
 ## Example Workflow Creation
 
