@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { N8nConfig, N8nWorkflow, ValidationResult } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +189,64 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'list_node_types',
+            description: 'List all available n8n node types',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'get_node_type',
+            description: 'Get details about a specific n8n node type',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                type: {
+                  type: 'string',
+                  description: 'The node type name (e.g., n8n-nodes-base.httpRequest)',
+                },
+              },
+              required: ['type'],
+            },
+          },
+          {
+            name: 'examples',
+            description: 'Get examples for a specific n8n node type',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                type: {
+                  type: 'string',
+                  description: 'The node type name (e.g., n8n-nodes-base.webhook)',
+                },
+              },
+              required: ['type'],
+            },
+          },
+          {
+            name: 'validate_node_config',
+            description: 'Validate a node configuration against its type definition',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                type: {
+                  type: 'string',
+                  description: 'The node type name',
+                },
+                params: {
+                  type: 'object',
+                  description: 'The node parameters to validate',
+                },
+                credentials: {
+                  type: 'object',
+                  description: 'Optional credentials object',
+                },
+              },
+              required: ['type', 'params'],
+            },
+          },
         ],
       };
     });
@@ -218,6 +276,22 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'list_node_types':
+            return await this.handleListNodeTypes();
+
+          case 'get_node_type':
+            return await this.handleGetNodeType(request.params.arguments as { type: string });
+
+          case 'examples':
+            return await this.handleGetExamples(request.params.arguments as { type: string });
+
+          case 'validate_node_config':
+            return await this.handleValidateNodeConfig(request.params.arguments as { 
+              type: string; 
+              params: Record<string, any>; 
+              credentials?: Record<string, string> 
+            });
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -320,6 +394,108 @@ export class N8nMcpServer {
         },
       ],
     };
+  }
+
+  private async handleListNodeTypes() {
+    const nodeTypes = await this.n8nClient.getNodeTypes();
+    const summary = nodeTypes.map(nodeType => ({
+      name: nodeType.name,
+      displayName: nodeType.displayName,
+      description: nodeType.description,
+      version: nodeType.version,
+      category: nodeType.category,
+    }));
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(summary, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetNodeType(args: { type: string }) {
+    const nodeType = await this.n8nClient.getNodeTypeByName(args.type);
+    if (!nodeType) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Node type '${args.type}' not found. Use list_node_types to see available types.`,
+          },
+        ],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(nodeType, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetExamples(args: { type: string }) {
+    const examples = await this.n8nClient.getNodeTypeExamples(args.type);
+    if (examples.length === 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `No examples available for node type '${args.type}'.`,
+          },
+        ],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(examples, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleValidateNodeConfig(args: { 
+    type: string; 
+    params: Record<string, any>; 
+    credentials?: Record<string, string> 
+  }) {
+    const result = await this.n8nClient.validateNodeConfiguration(
+      args.type,
+      args.params,
+      args.credentials
+    );
+
+    if (result.valid) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `✅ Node configuration is valid for type '${args.type}'`,
+          },
+        ],
+      };
+    } else {
+      const errorSummary = result.errors.map(error => 
+        `❌ ${error.property}: ${error.message} (${error.code})`
+      ).join('\n');
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ Node configuration validation failed for type '${args.type}':\n\n${errorSummary}\n\nFull validation result:\n${JSON.stringify(result, null, 2)}`,
+          },
+        ],
+      };
+    }
   }
 
   async run() {
