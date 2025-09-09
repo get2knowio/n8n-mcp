@@ -82,11 +82,13 @@ describe('Types', () => {
       const connections: N8nConnections = {
         'webhook-1': {
           'main': [
-            {
-              node: 'code-1',
-              type: 'main',
-              index: 0
-            }
+            [
+              {
+                node: 'code-1',
+                type: 'main',
+                index: 0
+              }
+            ]
           ]
         }
       };
@@ -94,7 +96,7 @@ describe('Types', () => {
       expect(connections).toBeDefined();
       expect(connections['webhook-1']).toBeDefined();
       expect(connections['webhook-1']['main']).toHaveLength(1);
-      expect(connections['webhook-1']['main'][0].node).toBe('code-1');
+      expect(connections['webhook-1']['main'][0][0].node).toBe('code-1');
     });
 
     it('should work with empty connections', () => {

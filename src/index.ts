@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { N8nConfig, N8nWorkflow, ApplyOpsRequest } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +189,35 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'apply_ops',
+            description: 'Apply multiple graph operations atomically to a workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                ops: {
+                  type: 'array',
+                  description: 'Array of operations to apply',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      type: {
+                        type: 'string',
+                        enum: ['addNode', 'deleteNode', 'updateNode', 'setParam', 'unsetParam', 'connect', 'disconnect', 'setWorkflowProperty', 'addTag', 'removeTag'],
+                        description: 'The type of operation'
+                      }
+                    },
+                    required: ['type']
+                  }
+                }
+              },
+              required: ['workflowId', 'ops'],
+            },
+          },
         ],
       };
     });
@@ -218,6 +247,9 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'apply_ops':
+            return await this.handleApplyOps(request.params.arguments as unknown as ApplyOpsRequest);
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -320,6 +352,35 @@ export class N8nMcpServer {
         },
       ],
     };
+  }
+
+  private async handleApplyOps(args: ApplyOpsRequest) {
+    const result = await this.n8nClient.applyOperations(args.workflowId, args.ops);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Operations applied successfully:\n${JSON.stringify(result.workflow, null, 2)}`,
+          },
+        ],
+      };
+    } else {
+      // Format error response
+      const errorDetails = result.errors?.map(err => 
+        `Operation ${err.operationIndex} (${err.operation.type}): ${err.error}`
+      ).join('\n') || 'Unknown error';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Operations failed:\n${errorDetails}`,
+          },
+        ],
+      };
+    }
   }
 
   async run() {
