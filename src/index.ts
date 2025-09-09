@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -189,6 +189,42 @@ export class N8nMcpServer {
               required: ['id'],
             },
           },
+          {
+            name: 'webhook_urls',
+            description: 'Get webhook URLs for a webhook node in a workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                nodeId: {
+                  type: 'string',
+                  description: 'The webhook node ID',
+                },
+              },
+              required: ['workflowId', 'nodeId'],
+            },
+          },
+          {
+            name: 'run_once',
+            description: 'Execute a workflow manually once and return execution details',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                input: {
+                  type: 'object',
+                  description: 'Optional input data for the workflow execution',
+                },
+              },
+              required: ['workflowId'],
+            },
+          },
         ],
       };
     });
@@ -218,6 +254,12 @@ export class N8nMcpServer {
 
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'webhook_urls':
+            return await this.handleWebhookUrls(request.params.arguments as { workflowId: number; nodeId: string });
+
+          case 'run_once':
+            return await this.handleRunOnce(request.params.arguments as { workflowId: number; input?: any });
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -317,6 +359,30 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleWebhookUrls(args: { workflowId: number; nodeId: string }) {
+    const urls = await this.n8nClient.getWebhookUrls(args.workflowId, args.nodeId);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(urls, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleRunOnce(args: { workflowId: number; input?: any }) {
+    const execution = await this.n8nClient.runOnce(args.workflowId, args.input);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(execution, null, 2),
         },
       ],
     };

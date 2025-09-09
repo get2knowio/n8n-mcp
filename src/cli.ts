@@ -18,6 +18,8 @@ Commands:
   delete <id>            Delete workflow by ID
   activate <id>          Activate workflow
   deactivate <id>        Deactivate workflow
+  webhook-urls <workflowId> <nodeId>  Get webhook URLs for a node
+  run-once <workflowId> [input.json]  Execute workflow once
 
 Environment variables:
   N8N_BASE_URL           n8n instance URL (default: http://localhost:5678)
@@ -94,6 +96,35 @@ Environment variables:
         }
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
+        break;
+
+      case 'webhook-urls':
+        const webhookWorkflowId = parseInt(args[1]);
+        const nodeId = args[2];
+        if (!webhookWorkflowId || !nodeId) {
+          console.error('Error: Workflow ID and Node ID required');
+          process.exit(1);
+        }
+        const urls = await client.getWebhookUrls(webhookWorkflowId, nodeId);
+        console.log('Webhook URLs:', JSON.stringify(urls, null, 2));
+        break;
+
+      case 'run-once':
+        const runWorkflowId = parseInt(args[1]);
+        if (!runWorkflowId) {
+          console.error('Error: Workflow ID required');
+          process.exit(1);
+        }
+        
+        let inputData;
+        if (args[2]) {
+          // If input file provided, read it
+          const fs = await import('fs/promises');
+          inputData = JSON.parse(await fs.readFile(args[2], 'utf8'));
+        }
+        
+        const execution = await client.runOnce(runWorkflowId, inputData);
+        console.log('Execution started:', JSON.stringify(execution, null, 2));
         break;
 
       default:
