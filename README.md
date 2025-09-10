@@ -16,6 +16,7 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Source Control**: Pull changes from source control to sync with remote
 - **Get Credential Schema**: Fetch JSON schema for credential types to validate or drive UIs
 - **Transfer Workflows**: Move workflows across projects or owners
 - **Transfer Credentials**: Move credentials across projects or owners
@@ -100,6 +101,8 @@ npm run cli delete 1
 npm run cli activate 1
 npm run cli deactivate 1
 
+# Source control operations
+npm run cli source-control pull
 # Get credential schema
 npm run cli get-credential-schema httpHeaderAuth
 
@@ -160,6 +163,7 @@ npm run cli tags delete 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
+8. **source_control_pull** - Pull changes from source control
 8. **get_credential_schema** - Get JSON schema for a credential type
 9. **list_workflow_tags** - List tags for a specific workflow
 10. **set_workflow_tags** - Set tags for a specific workflow

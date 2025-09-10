@@ -5,14 +5,14 @@ import { N8nConfig } from './types.js';
 
 async function handleTagCommands(client: N8nClient, command: string, args: string[]) {
   switch (command) {
-    case 'list':
+    case 'list': {
       const limit = args[0] ? parseInt(args[0]) : undefined;
       const cursor = args[1] || undefined;
       const tags = await client.listTags(limit, cursor);
       console.log(JSON.stringify(tags, null, 2));
       break;
-
-    case 'get':
+    }
+    case 'get': {
       const getId = parseInt(args[0]);
       if (!getId) {
         console.error('Error: Tag ID required');
@@ -21,8 +21,8 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
       const tag = await client.getTag(getId);
       console.log(JSON.stringify(tag, null, 2));
       break;
-
-    case 'create':
+    }
+    case 'create': {
       const name = args[0];
       if (!name) {
         console.error('Error: Tag name required');
@@ -32,8 +32,8 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
       const created = await client.createTag({ name, color });
       console.log(JSON.stringify(created, null, 2));
       break;
-
-    case 'update':
+    }
+    case 'update': {
       const updateId = parseInt(args[0]);
       if (!updateId) {
         console.error('Error: Tag ID required');
@@ -42,17 +42,17 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
       const updateData: any = {};
       if (args[1]) updateData.name = args[1];
       if (args[2]) updateData.color = args[2];
-      
+
       if (Object.keys(updateData).length === 0) {
         console.error('Error: At least one of name or color must be provided');
         process.exit(1);
       }
-      
+
       const updated = await client.updateTag(updateId, updateData);
       console.log(JSON.stringify(updated, null, 2));
       break;
-
-    case 'delete':
+    }
+    case 'delete': {
       const deleteId = parseInt(args[0]);
       if (!deleteId) {
         console.error('Error: Tag ID required');
@@ -61,11 +61,12 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
       await client.deleteTag(deleteId);
       console.log(JSON.stringify({ ok: true, message: `Tag ${deleteId} deleted successfully` }, null, 2));
       break;
-
-    default:
+    }
+    default: {
       console.error(`Unknown tag command: ${command}`);
       console.error('Available commands: list, get, create, update, delete');
       process.exit(1);
+    }
   }
 }
 
@@ -78,54 +79,55 @@ async function handleVariablesCommand(client: N8nClient, args: string[]) {
   }
 
   switch (subCommand) {
-    case 'list':
+    case 'list': {
       const variables = await client.listVariables();
       console.log(JSON.stringify(variables, null, 2));
       break;
-
-    case 'create':
+    }
+    case 'create': {
       const keyIndex = args.indexOf('--key');
       const valueIndex = args.indexOf('--value');
-      
+
       if (keyIndex === -1 || valueIndex === -1 || !args[keyIndex + 1] || !args[valueIndex + 1]) {
         console.error('Error: Both --key and --value are required');
         process.exit(1);
       }
-      
+
       const key = args[keyIndex + 1];
       const value = args[valueIndex + 1];
       const created = await client.createVariable({ key, value });
       console.log(JSON.stringify(created, null, 2));
       break;
-
-    case 'update':
+    }
+    case 'update': {
       const updateId = args[1];
       const updateValueIndex = args.indexOf('--value');
-      
+
       if (!updateId || updateValueIndex === -1 || !args[updateValueIndex + 1]) {
         console.error('Error: Variable ID and --value are required');
         process.exit(1);
       }
-      
+
       const newValue = args[updateValueIndex + 1];
       const updated = await client.updateVariable(updateId, { value: newValue });
       console.log(JSON.stringify(updated, null, 2));
       break;
-
-    case 'delete':
+    }
+    case 'delete': {
       const deleteId = args[1];
       if (!deleteId) {
         console.error('Error: Variable ID required');
         process.exit(1);
       }
-      
+
       const result = await client.deleteVariable(deleteId);
       console.log(JSON.stringify(result, null, 2));
       break;
-
-    default:
+    }
+    default: {
       console.error(`Unknown variables command: ${subCommand}`);
       process.exit(1);
+    }
   }
 }
 
@@ -152,6 +154,7 @@ Commands:
   executions delete <id>                 Delete execution by ID
   webhook-urls <workflowId> <nodeId>     Get webhook URLs for a node
   run-once <workflowId> [input.json]     Execute workflow once
+  source-control pull       Pull changes from source control
 
 Options for executions list:
   --limit <number>       Maximum number of executions to return
@@ -191,12 +194,12 @@ Environment variables:
 
   try {
     switch (command) {
-      case 'list':
+      case 'list': {
         const workflows = await client.listWorkflows();
         console.log(JSON.stringify(workflows, null, 2));
         break;
-
-      case 'get':
+      }
+      case 'get': {
         const id = parseInt(args[1]);
         if (!id) {
           console.error('Error: Workflow ID required');
@@ -205,8 +208,8 @@ Environment variables:
         const workflow = await client.getWorkflow(id);
         console.log(JSON.stringify(workflow, null, 2));
         break;
-
-      case 'create':
+      }
+      case 'create': {
         const filename = args[1];
         if (!filename) {
           console.error('Error: JSON file required');
@@ -217,8 +220,8 @@ Environment variables:
         const created = await client.createWorkflow(workflowData);
         console.log('Created workflow:', JSON.stringify(created, null, 2));
         break;
-
-      case 'delete':
+      }
+      case 'delete': {
         const deleteId = parseInt(args[1]);
         if (!deleteId) {
           console.error('Error: Workflow ID required');
@@ -227,8 +230,8 @@ Environment variables:
         await client.deleteWorkflow(deleteId);
         console.log(`Workflow ${deleteId} deleted successfully`);
         break;
-
-      case 'activate':
+      }
+      case 'activate': {
         const activateId = parseInt(args[1]);
         if (!activateId) {
           console.error('Error: Workflow ID required');
@@ -237,8 +240,8 @@ Environment variables:
         const activated = await client.activateWorkflow(activateId);
         console.log('Activated workflow:', JSON.stringify(activated, null, 2));
         break;
-
-      case 'deactivate':
+      }
+      case 'deactivate': {
         const deactivateId = parseInt(args[1]);
         if (!deactivateId) {
           console.error('Error: Workflow ID required');
@@ -247,8 +250,8 @@ Environment variables:
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
         break;
-
-      case 'get-credential-schema':
+      }
+      case 'get-credential-schema': {
         const credentialType = args[1];
         if (!credentialType) {
           console.error('Error: Credential type name required');
@@ -257,8 +260,8 @@ Environment variables:
         const schema = await client.getCredentialSchema(credentialType);
         console.log(JSON.stringify(schema, null, 2));
         break;
-
-      case 'workflows':
+      }
+      case 'workflows': {
         const subcommand = args[1];
         if (subcommand === 'tags') {
           const workflowId = parseInt(args[2]);
@@ -270,21 +273,13 @@ Environment variables:
           console.log(JSON.stringify(tags, null, 2));
         } else if (subcommand === 'set-tags') {
           const workflowId = parseInt(args[2]);
-          if (!workflowId) {
-            console.error('Error: Workflow ID required');
-            process.exit(1);
-          }
-          
-          // Find --tags argument
           const tagsIndex = args.indexOf('--tags');
-          if (tagsIndex === -1 || tagsIndex === args.length - 1) {
-            console.error('Error: --tags argument required');
+          if (!workflowId || tagsIndex === -1 || !args[tagsIndex + 1]) {
+            console.error('Error: Workflow ID and --tags are required');
             process.exit(1);
           }
-          
           const tagsArg = args[tagsIndex + 1];
-          const tagIds = tagsArg.split(',').map(tag => tag.trim());
-          
+          const tagIds = tagsArg.split(',').map((t) => t.trim());
           const tags = await client.setWorkflowTags(workflowId, tagIds);
           console.log('Workflow tags updated:', JSON.stringify(tags, null, 2));
         } else {
@@ -292,8 +287,8 @@ Environment variables:
           process.exit(1);
         }
         break;
-
-      case 'tags':
+      }
+      case 'tags': {
         const tagCommand = args[1];
         if (!tagCommand) {
           console.error('Error: Tag command required (list|get|create|update|delete)');
@@ -301,12 +296,12 @@ Environment variables:
         }
         await handleTagCommands(client, tagCommand, args.slice(2));
         break;
-
-      case 'variables':
+      }
+      case 'variables': {
         await handleVariablesCommand(client, args.slice(1));
         break;
-
-      case 'executions':
+      }
+      case 'executions': {
         const subCommand = args[1];
         if (!subCommand) {
           console.error('Error: Executions subcommand required (list, get, delete)');
@@ -314,10 +309,9 @@ Environment variables:
         }
 
         switch (subCommand) {
-          case 'list':
+          case 'list': {
             const listOptions: { limit?: number; cursor?: string; workflowId?: string } = {};
-            
-            // Parse options
+
             for (let i = 2; i < args.length; i++) {
               if (args[i] === '--limit' && args[i + 1]) {
                 listOptions.limit = parseInt(args[i + 1]);
@@ -334,8 +328,8 @@ Environment variables:
             const executions = await client.listExecutions(listOptions);
             console.log(JSON.stringify(executions, null, 2));
             break;
-
-          case 'get':
+          }
+          case 'get': {
             const executionId = args[2];
             if (!executionId) {
               console.error('Error: Execution ID required');
@@ -344,8 +338,8 @@ Environment variables:
             const execution = await client.getExecution(executionId);
             console.log(JSON.stringify(execution, null, 2));
             break;
-
-          case 'delete':
+          }
+          case 'delete': {
             const deleteExecutionId = args[2];
             if (!deleteExecutionId) {
               console.error('Error: Execution ID required');
@@ -354,14 +348,15 @@ Environment variables:
             await client.deleteExecution(deleteExecutionId);
             console.log(`Execution ${deleteExecutionId} deleted successfully`);
             break;
-
-          default:
+          }
+          default: {
             console.error(`Unknown executions subcommand: ${subCommand}`);
             process.exit(1);
+          }
         }
         break;
-
-      case 'webhook-urls':
+      }
+      case 'webhook-urls': {
         const webhookWorkflowId = parseInt(args[1]);
         const nodeId = args[2];
         if (!webhookWorkflowId || !nodeId) {
@@ -371,28 +366,39 @@ Environment variables:
         const urls = await client.getWebhookUrls(webhookWorkflowId, nodeId);
         console.log('Webhook URLs:', JSON.stringify(urls, null, 2));
         break;
-
-      case 'run-once':
+      }
+      case 'run-once': {
         const runWorkflowId = parseInt(args[1]);
         if (!runWorkflowId) {
           console.error('Error: Workflow ID required');
           process.exit(1);
         }
-        
+
         let inputData;
         if (args[2]) {
-          // If input file provided, read it
           const fs = await import('fs/promises');
           inputData = JSON.parse(await fs.readFile(args[2], 'utf8'));
         }
-        
+
         const execution = await client.runOnce(runWorkflowId, inputData);
         console.log('Execution started:', JSON.stringify(execution, null, 2));
         break;
-
-      default:
+      }
+      case 'source-control': {
+        const subCommand = args[1];
+        if (subCommand === 'pull') {
+          const result = await client.sourceControlPull();
+          console.log('Source control pull result:', JSON.stringify(result, null, 2));
+        } else {
+          console.error(`Unknown source-control subcommand: ${subCommand}`);
+          process.exit(1);
+        }
+        break;
+      }
+      default: {
         console.error(`Unknown command: ${command}`);
         process.exit(1);
+      }
     }
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);

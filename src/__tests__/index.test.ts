@@ -28,6 +28,7 @@ jest.mock('../n8n-client', () => ({
     deleteWorkflow: jest.fn(),
     activateWorkflow: jest.fn(),
     deactivateWorkflow: jest.fn(),
+  sourceControlPull: jest.fn(),
     listVariables: jest.fn(),
     createVariable: jest.fn(),
     updateVariable: jest.fn(),
@@ -98,6 +99,7 @@ describe('N8nMcpServer', () => {
   expect(toolNames).toContain('create_variable');
   expect(toolNames).toContain('update_variable');
   expect(toolNames).toContain('delete_variable');
+  expect(toolNames).toContain('source_control_pull');
       });
     });
   });

@@ -163,3 +163,8 @@ export interface N8nCredentialSchema {
   iconUrl?: string;
   category?: string;
 }
+
+export interface N8nSourceControlPullResponse {
+  ok: boolean;
+  commit?: string;
+}

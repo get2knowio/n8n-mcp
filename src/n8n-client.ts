@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nTag, N8nTagsListResponse, N8nVariable, N8nVariablesListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse, N8nWebhookUrls, N8nExecutionResponse, N8nCredential, TransferRequest, TransferResponse, N8nCredentialSchema } from './types.js';
+import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nTag, N8nTagsListResponse, N8nVariable, N8nVariablesListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse, N8nWebhookUrls, N8nExecutionResponse, N8nCredential, TransferRequest, TransferResponse, N8nCredentialSchema, N8nSourceControlPullResponse } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
@@ -68,6 +68,11 @@ export class N8nClient {
 
   async deactivateWorkflow(id: number): Promise<N8nWorkflow> {
     const response = await this.api.post<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}/deactivate`);
+    return response.data.data;
+  }
+
+  async sourceControlPull(): Promise<N8nSourceControlPullResponse> {
+    const response = await this.api.post<N8nApiResponse<N8nSourceControlPullResponse>>('/source-control/pull');
     return response.data.data;
   }
 
