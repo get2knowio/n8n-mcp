@@ -16,6 +16,8 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Credential Management**: List credentials and resolve credential aliases
+- **Credential Aliasing**: Use human-friendly names for credentials in workflows
 - **Source Control**: Pull changes from source control to sync with remote
 - **Get Credential Schema**: Fetch JSON schema for credential types to validate or drive UIs
 - **Transfer Workflows**: Move workflows across projects or owners
@@ -168,30 +170,33 @@ npm run cli tags delete 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
-8. **source_control_pull** - Pull changes from source control
-8. **get_credential_schema** - Get JSON schema for a credential type
-9. **list_workflow_tags** - List tags for a specific workflow
-10. **set_workflow_tags** - Set tags for a specific workflow
-11. **transfer_workflow** - Transfer a workflow to a different project or owner
-12. **transfer_credential** - Transfer a credential to a different project or owner
-13. **list_executions** - List workflow executions with pagination
-14. **get_execution** - Get execution by ID
-15. **delete_execution** - Delete an execution
-16. **webhook_urls** - Get webhook URLs for a webhook node
-17. **run_once** - Execute a workflow manually once
+7. **deactivate_workflow** - Deactivate a workflow
+8. **list_credentials** - List all credentials
+9. **resolve_credential_alias** - Resolve a credential alias to its ID
+10. **source_control_pull** - Pull changes from source control
+11. **get_credential_schema** - Get JSON schema for a credential type
+12. **list_workflow_tags** - List tags for a specific workflow
+13. **set_workflow_tags** - Set tags for a specific workflow
+14. **transfer_workflow** - Transfer a workflow to a different project or owner
+15. **transfer_credential** - Transfer a credential to a different project or owner
+16. **list_executions** - List workflow executions with pagination
+17. **get_execution** - Get execution by ID
+18. **delete_execution** - Delete an execution
+19. **webhook_urls** - Get webhook URLs for a webhook node
+20. **run_once** - Execute a workflow manually once
 
 #### Variables Tools
-18. **list_variables** - List all variables with pagination support
-19. **create_variable** - Create a new variable (requires unique key)
-20. **update_variable** - Update an existing variable value
-21. **delete_variable** - Delete a variable
+21. **list_variables** - List all variables with pagination support
+22. **create_variable** - Create a new variable (requires unique key)
+23. **update_variable** - Update an existing variable value
+24. **delete_variable** - Delete a variable
 
 #### Tag Tools
-22. **list_tags** - List all tags with optional pagination
-23. **get_tag** - Get tag by ID
-24. **create_tag** - Create a new tag
-25. **update_tag** - Update existing tag
-26. **delete_tag** - Delete a tag
+25. **list_tags** - List all tags with optional pagination
+26. **get_tag** - Get tag by ID
+27. **create_tag** - Create a new tag
+28. **update_tag** - Update existing tag
+29. **delete_tag** - Delete a tag
 
 #### Optimistic Concurrency for Updates
 
@@ -212,6 +217,7 @@ When `ifMatch` is provided:
 
 ## Example Workflow Creation
 
+### Basic Workflow with Credential IDs
 ```json
 {
   "name": "Example Workflow",
@@ -233,6 +239,68 @@ When `ifMatch` is provided:
   "tags": ["example"]
 }
 ```
+
+### Workflow with Credential Aliases
+You can now use human-friendly credential names instead of IDs:
+
+```json
+{
+  "name": "HTTP Request Workflow",
+  "nodes": [
+    {
+      "id": "http-request",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {
+        "url": "https://api.example.com/data",
+        "method": "GET"
+      },
+      "credentials": {
+        "httpBasicAuth": "my-api-credentials"
+      }
+    }
+  ],
+  "connections": {},
+  "active": false,
+  "tags": ["example", "api"]
+}
+```
+
+The system will automatically resolve `"my-api-credentials"` to the appropriate credential ID before creating or updating the workflow.
+
+## Credential Management
+
+### Listing Credentials
+Use the `list_credentials` tool to see all available credentials in your n8n instance:
+
+```bash
+# Through MCP tools
+{
+  "tool": "list_credentials",
+  "arguments": {}
+}
+```
+
+### Resolving Credential Aliases
+Use the `resolve_credential_alias` tool to resolve a credential name to its ID:
+
+```bash
+# Through MCP tools
+{
+  "tool": "resolve_credential_alias", 
+  "arguments": {
+    "alias": "my-api-credentials"
+  }
+}
+```
+
+### Alias Resolution Rules
+- **Unique Match**: If exactly one credential matches the alias, it returns the credential ID
+- **No Match**: Throws an error if no credentials match the alias
+- **Multiple Matches**: Throws an error if multiple credentials have the same name
+- **Numeric Values**: Credential values that are all digits are treated as IDs and left unchanged
 
 ## Transfer Operations (Enterprise)
 

@@ -154,6 +154,28 @@ export class N8nMcpServer {
               required: ['type', 'params'],
             },
           },
+          {
+            name: 'list_credentials',
+            description: 'List all n8n credentials',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'resolve_credential_alias',
+            description: 'Resolve a credential alias to its ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                alias: {
+                  type: 'string',
+                  description: 'The credential alias/name to resolve',
+                },
+              },
+              required: ['alias'],
+            },
+          },
           { name: 'get_credential_schema', description: 'Get JSON schema for a credential type', inputSchema: { type: 'object', properties: { credentialTypeName: { type: 'string', description: 'The name of the credential type' } }, required: ['credentialTypeName'] } },
 
           { name: 'list_variables', description: 'List all variables with pagination support', inputSchema: { type: 'object', properties: { limit: { type: 'number' }, cursor: { type: 'string' } } } },
@@ -211,6 +233,12 @@ export class N8nMcpServer {
             return await this.handleActivateWorkflow(request.params.arguments as { id: number });
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'list_credentials':
+            return await this.handleListCredentials();
+
+          case 'resolve_credential_alias':
+            return await this.handleResolveCredentialAlias(request.params.arguments as { alias: string });
 
           case 'apply_ops':
             return await this.handleApplyOps(request.params.arguments as unknown as ApplyOpsRequest);
@@ -460,6 +488,30 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Node updated successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleListCredentials() {
+    const credentials = await this.n8nClient.listCredentials();
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(credentials, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleResolveCredentialAlias(args: { alias: string }) {
+    const credentialId = await this.n8nClient.resolveCredentialAlias(args.alias);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Credential alias '${args.alias}' resolved to ID: ${credentialId}`,
         },
       ],
     };

@@ -58,6 +58,17 @@ export interface N8nCredential {
   data?: Record<string, any>;
   projectId?: string;
   ownerId?: string;
+  nodesAccess?: Array<{
+    nodeType: string;
+  }>;
+  sharedWith?: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
+export interface N8nCredentialsListResponse {
+  data: N8nCredential[];
 }
 
 export interface TransferRequest {

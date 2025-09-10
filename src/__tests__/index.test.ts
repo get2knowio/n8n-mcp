@@ -28,6 +28,8 @@ jest.mock('../n8n-client.js', () => ({
     deleteWorkflow: jest.fn(),
     activateWorkflow: jest.fn(),
     deactivateWorkflow: jest.fn(),
+    listCredentials: jest.fn(),
+    resolveCredentialAlias: jest.fn(),
     getNodeTypes: jest.fn(),
     getNodeTypeByName: jest.fn(),
     getNodeTypeExamples: jest.fn(),
