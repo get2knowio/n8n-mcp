@@ -110,6 +110,10 @@ describe('N8nMcpServer', () => {
         expect(toolNames).toContain('get_node_type');
         expect(toolNames).toContain('examples');
         expect(toolNames).toContain('validate_node_config');
+        // Execution tools
+        expect(toolNames).toContain('list_executions');
+        expect(toolNames).toContain('get_execution');
+        expect(toolNames).toContain('delete_execution');
       });
     });
   });
@@ -152,7 +156,12 @@ describe('N8nMcpServer', () => {
         expect(toolNames).toContain('get_node_type');
         expect(toolNames).toContain('examples');
         expect(toolNames).toContain('validate_node_config');
+        expect(toolNames).toContain('list_executions');
+        expect(toolNames).toContain('get_execution');
+        expect(toolNames).toContain('delete_execution');
       }
     });
   });
+
+
 });
