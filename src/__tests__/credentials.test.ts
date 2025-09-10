@@ -16,22 +16,22 @@ describe('N8nClient - Credentials', () => {
 
   const mockCredentials: N8nCredential[] = [
     {
-      id: '1',
+      id: 1,
       name: 'test-credential',
       type: 'httpBasicAuth',
     },
     {
-      id: '2',
+      id: 2,
       name: 'another-credential',
       type: 'httpHeaderAuth',
     },
     {
-      id: '3',
+      id: 3,
       name: 'duplicate-name',
       type: 'httpBasicAuth',
     },
     {
-      id: '4',
+      id: 4,
       name: 'duplicate-name',
       type: 'httpHeaderAuth',
     }
@@ -47,6 +47,7 @@ describe('N8nClient - Credentials', () => {
       get: jest.fn(),
       post: jest.fn(),
       patch: jest.fn(),
+      put: jest.fn(),
       delete: jest.fn(),
     };
 
@@ -305,12 +306,12 @@ describe('N8nClient - Credentials', () => {
           data: { ...updateData, id: 1 }
         }
       };
-      mockApi.patch.mockResolvedValue(mockUpdateResponse);
+      mockApi.put.mockResolvedValue(mockUpdateResponse);
 
       const result = await client.updateWorkflow(1, updateData);
 
       // Verify that credentials were resolved before the API call
-      expect(mockApi.patch).toHaveBeenCalledWith('/workflows/1', expect.objectContaining({
+      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1', expect.objectContaining({
         nodes: expect.arrayContaining([
           expect.objectContaining({
             credentials: {
@@ -318,7 +319,7 @@ describe('N8nClient - Credentials', () => {
             }
           })
         ])
-      }));
+      }), { headers: {} });
       expect(result.id).toBe(1);
     });
   });
