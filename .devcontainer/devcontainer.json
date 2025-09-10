@@ -1,0 +1,23 @@
+{
+  "name": "get2know.io devcontainer",
+  "image": "ghcr.io/get2knowio/devcontainer:latest",
+  "remoteUser": "vscode",
+  "features": {},
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "yoavbls.pretty-ts-errors",
+        "orta.vscode-jest",
+        "mikestead.dotenv",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-containers",
+        "docker.docker",
+        "pflannery.vscode-versionlens"
+      ]
+    }
+  },
+  "initializeCommand": "docker pull ghcr.io/get2knowio/devcontainer:latest"
+}
