@@ -212,6 +212,64 @@ export class N8nMcpServer {
             },
           },
           {
+            name: 'list_variables',
+            description: 'List all variables with pagination support',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'create_variable',
+            description: 'Create a new variable (requires unique key)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                key: {
+                  type: 'string',
+                  description: 'Variable key (must be unique)'
+                },
+                value: {
+                  type: 'string',
+                  description: 'Variable value'
+                }
+              },
+              required: ['key', 'value']
+            },
+          },
+          {
+            name: 'update_variable',
+            description: 'Update an existing variable value',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Variable ID'
+                },
+                value: {
+                  type: 'string',
+                  description: 'New variable value'
+                }
+              },
+              required: ['id', 'value']
+            },
+          },
+          {
+            name: 'delete_variable',
+            description: 'Delete a variable by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Variable ID'
+                }
+              },
+              required: ['id']
+            },
+          },
+          {
             name: 'list_workflow_tags',
             description: 'List tags for a specific n8n workflow',
             inputSchema: {

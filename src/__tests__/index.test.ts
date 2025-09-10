@@ -93,6 +93,11 @@ describe('N8nMcpServer', () => {
         expect(toolNames).toContain('run_once');
         expect(toolNames).toContain('list_workflow_tags');
         expect(toolNames).toContain('set_workflow_tags');
+  expect(toolNames).toContain('get_credential_schema');
+  expect(toolNames).toContain('list_variables');
+  expect(toolNames).toContain('create_variable');
+  expect(toolNames).toContain('update_variable');
+  expect(toolNames).toContain('delete_variable');
       });
     });
   });
