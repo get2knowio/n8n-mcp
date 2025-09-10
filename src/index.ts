@@ -13,7 +13,8 @@ import {
   UpdateNodeRequest,
   ConnectNodesRequest,
   DeleteNodeRequest,
-  SetNodePositionRequest
+  SetNodePositionRequest,
+  ApplyOpsRequest
 } from './types.js';
 
 export class N8nMcpServer {
@@ -65,6 +66,36 @@ export class N8nMcpServer {
           { name: 'delete_workflow', description: 'Delete an n8n workflow', inputSchema: { type: 'object', properties: { id: { type: 'number' } }, required: ['id'] } },
           { name: 'activate_workflow', description: 'Activate an n8n workflow', inputSchema: { type: 'object', properties: { id: { type: 'number' } }, required: ['id'] } },
           { name: 'deactivate_workflow', description: 'Deactivate an n8n workflow', inputSchema: { type: 'object', properties: { id: { type: 'number' } }, required: ['id'] } },
+          
+          {
+            name: 'apply_ops',
+            description: 'Apply multiple graph operations atomically to a workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                ops: {
+                  type: 'array',
+                  description: 'Array of operations to apply',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      type: {
+                        type: 'string',
+                        enum: ['addNode', 'deleteNode', 'updateNode', 'setParam', 'unsetParam', 'connect', 'disconnect', 'setWorkflowProperty', 'addTag', 'removeTag'],
+                        description: 'The type of operation'
+                      }
+                    },
+                    required: ['type']
+                  }
+                }
+              },
+              required: ['workflowId', 'ops'],
+            },
+          },
 
           { name: 'get_credential_schema', description: 'Get JSON schema for a credential type', inputSchema: { type: 'object', properties: { credentialTypeName: { type: 'string', description: 'The name of the credential type' } }, required: ['credentialTypeName'] } },
 
@@ -123,6 +154,9 @@ export class N8nMcpServer {
             return await this.handleActivateWorkflow(request.params.arguments as { id: number });
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
+
+          case 'apply_ops':
+            return await this.handleApplyOps(request.params.arguments as unknown as ApplyOpsRequest);
 
           case 'get_credential_schema':
             return await this.handleGetCredentialSchema(request.params.arguments as { credentialTypeName: string });
@@ -392,6 +426,35 @@ export class N8nMcpServer {
         },
       ],
     };
+  }
+
+  private async handleApplyOps(args: ApplyOpsRequest) {
+    const result = await this.n8nClient.applyOperations(args.workflowId, args.ops);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Operations applied successfully:\n${JSON.stringify(result.workflow, null, 2)}`,
+          },
+        ],
+      };
+    } else {
+      // Format error response
+      const errorDetails = result.errors?.map(err => 
+        `Operation ${err.operationIndex} (${err.operation.type}): ${err.error}`
+      ).join('\n') || 'Unknown error';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Operations failed:\n${errorDetails}`,
+          },
+        ],
+      };
+    }
   }
 
   async run() {
