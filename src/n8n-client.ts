@@ -1,9 +1,23 @@
 import axios, { AxiosInstance } from 'axios';
-import { 
-  N8nWorkflow, 
-  N8nConfig, 
-  N8nApiResponse, 
+import {
+  N8nWorkflow,
+  N8nConfig,
+  N8nApiResponse,
   N8nWorkflowsListResponse,
+  N8nTag,
+  N8nTagsListResponse,
+  N8nVariable,
+  N8nVariablesListResponse,
+  N8nExecution,
+  N8nExecutionsListResponse,
+  N8nExecutionDeleteResponse,
+  N8nWebhookUrls,
+  N8nExecutionResponse,
+  N8nCredential,
+  TransferRequest,
+  TransferResponse,
+  N8nCredentialSchema,
+  N8nSourceControlPullResponse,
   N8nNode,
   CreateNodeRequest,
   CreateNodeResponse,
@@ -14,21 +28,20 @@ import {
   DeleteNodeRequest,
   DeleteNodeResponse,
   SetNodePositionRequest,
-  SetNodePositionResponse
+  SetNodePositionResponse,
 } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
+  private baseUrl: string;
 
   constructor(config: N8nConfig) {
+    this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.api = axios.create({
-      baseURL: `${config.baseUrl}/api/v1`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      baseURL: `${this.baseUrl}/api/v1`,
+      headers: { 'Content-Type': 'application/json' },
     });
 
-    // Setup authentication
     if (config.apiKey) {
       this.api.defaults.headers.common['X-N8N-API-KEY'] = config.apiKey;
     } else if (config.username && config.password) {
@@ -37,9 +50,13 @@ export class N8nClient {
     }
   }
 
-  async listWorkflows(): Promise<N8nWorkflow[]> {
-    const response = await this.api.get<N8nWorkflowsListResponse>('/workflows');
-    return response.data.data;
+  async listWorkflows(limit?: number, cursor?: string): Promise<N8nWorkflowsListResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+    const url = params.toString() ? `/workflows?${params.toString()}` : '/workflows';
+    const response = await this.api.get<N8nWorkflowsListResponse>(url);
+    return response.data;
   }
 
   async getWorkflow(id: number): Promise<N8nWorkflow> {
@@ -49,7 +66,8 @@ export class N8nClient {
 
   async getWorkflowWithETag(id: number): Promise<{ workflow: N8nWorkflow; etag: string | null }> {
     const response = await this.api.get<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`);
-    const etag = response.headers.etag || response.headers.ETag || null;
+    const headers: any = response.headers || {};
+    const etag = headers.etag || headers.ETag || headers['etag'] || headers['ETag'] || null;
     return { workflow: response.data.data, etag };
   }
 
@@ -58,19 +76,17 @@ export class N8nClient {
     return response.data.data;
   }
 
-  async updateWorkflow(id: number, workflow: Partial<N8nWorkflow>, etag?: string): Promise<N8nWorkflow> {
+  async updateWorkflow(id: number, workflow: Partial<N8nWorkflow>, ifMatch?: string): Promise<N8nWorkflow> {
     const headers: Record<string, string> = {};
-    if (etag) {
-      headers['If-Match'] = etag;
-    }
-    
+    if (ifMatch) headers['If-Match'] = ifMatch;
     try {
-      const response = await this.api.patch<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`, workflow, { headers });
+      const response = await this.api.put<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`, workflow, { headers });
       return response.data.data;
     } catch (error: any) {
-      // Handle 412 Precondition Failed (concurrency conflict)
       if (error.response?.status === 412) {
-        throw new Error(`Workflow ${id} was modified by another process. Please retry the operation.`);
+        throw new Error(
+          'Precondition failed: The workflow has been modified by another user. Please fetch the latest version and try again.',
+        );
       }
       throw error;
     }
@@ -90,28 +106,23 @@ export class N8nClient {
     return response.data.data;
   }
 
-  // Granular node operations
+  // Graph mutation helpers
   private generateNodeId(): string {
     return `node_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   }
 
   private getDefaultPosition(existingNodes: N8nNode[]): [number, number] {
-    if (existingNodes.length === 0) {
-      return [250, 300];
-    }
-    
-    // Find the rightmost position and add some offset
-    const rightmostX = Math.max(...existingNodes.map(node => node.position[0]));
+    if (existingNodes.length === 0) return [250, 300];
+    const rightmostX = Math.max(...existingNodes.map((node) => node.position[0]));
     return [rightmostX + 200, 300];
   }
 
-  private async performWorkflowUpdate<T>(
+  private async performWorkflowUpdate(
     workflowId: number,
     operation: (workflow: N8nWorkflow) => void,
-    maxRetries: number = 3
+    maxRetries: number = 3,
   ): Promise<void> {
     let retries = 0;
-    
     while (retries < maxRetries) {
       try {
         const { workflow, etag } = await this.getWorkflowWithETag(workflowId);
@@ -119,10 +130,10 @@ export class N8nClient {
         await this.updateWorkflow(workflowId, workflow, etag || undefined);
         return;
       } catch (error: any) {
-        if (error.message.includes('was modified by another process') && retries < maxRetries - 1) {
+        const message = error?.message || '';
+        if (message.includes('Precondition failed') && retries < maxRetries - 1) {
           retries++;
-          // Add exponential backoff
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 100));
+          await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retries) * 100));
           continue;
         }
         throw error;
@@ -132,141 +143,225 @@ export class N8nClient {
 
   async createNode(request: CreateNodeRequest): Promise<CreateNodeResponse> {
     const nodeId = this.generateNodeId();
-    
     await this.performWorkflowUpdate(request.workflowId, (workflow) => {
       const position = request.position || this.getDefaultPosition(workflow.nodes);
-      
       const newNode: N8nNode = {
         id: nodeId,
         name: request.name || request.type.split('.').pop() || 'New Node',
         type: request.type,
-        typeVersion: 1, // Default to version 1
+        typeVersion: 1,
         position,
         parameters: request.params || {},
         credentials: request.credentials || {},
       };
-
       workflow.nodes.push(newNode);
     });
-    
     return { nodeId };
   }
 
   async updateNode(request: UpdateNodeRequest): Promise<UpdateNodeResponse> {
     await this.performWorkflowUpdate(request.workflowId, (workflow) => {
-      const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
+      const nodeIndex = workflow.nodes.findIndex((node) => node.id === request.nodeId);
       if (nodeIndex === -1) {
         throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
       }
-
       const node = workflow.nodes[nodeIndex];
-      
-      // Update the node properties
-      if (request.params !== undefined) {
-        node.parameters = { ...node.parameters, ...request.params };
-      }
-      if (request.credentials !== undefined) {
-        node.credentials = { ...node.credentials, ...request.credentials };
-      }
-      if (request.name !== undefined) {
-        node.name = request.name;
-      }
-      if (request.typeVersion !== undefined) {
-        node.typeVersion = request.typeVersion;
-      }
+      if (request.params !== undefined) node.parameters = { ...node.parameters, ...request.params };
+      if (request.credentials !== undefined) node.credentials = { ...node.credentials, ...request.credentials };
+      if (request.name !== undefined) node.name = request.name;
+      if (request.typeVersion !== undefined) node.typeVersion = request.typeVersion;
     });
-    
     return { nodeId: request.nodeId };
   }
 
   async connectNodes(request: ConnectNodesRequest): Promise<ConnectNodesResponse> {
     await this.performWorkflowUpdate(request.workflowId, (workflow) => {
-      // Verify both nodes exist
-      const fromNode = workflow.nodes.find(node => node.id === request.from.nodeId);
-      const toNode = workflow.nodes.find(node => node.id === request.to.nodeId);
-      
-      if (!fromNode) {
-        throw new Error(`Source node ${request.from.nodeId} not found in workflow ${request.workflowId}`);
-      }
-      if (!toNode) {
-        throw new Error(`Target node ${request.to.nodeId} not found in workflow ${request.workflowId}`);
-      }
+      const fromNode = workflow.nodes.find((node) => node.id === request.from.nodeId);
+      const toNode = workflow.nodes.find((node) => node.id === request.to.nodeId);
+      if (!fromNode) throw new Error(`Source node ${request.from.nodeId} not found in workflow ${request.workflowId}`);
+      if (!toNode) throw new Error(`Target node ${request.to.nodeId} not found in workflow ${request.workflowId}`);
 
-      // Initialize connections for the from node if it doesn't exist
-      if (!workflow.connections[fromNode.name]) {
-        workflow.connections[fromNode.name] = {};
-      }
-      
-      // Use 'main' as the default connection type
-      if (!workflow.connections[fromNode.name].main) {
-        workflow.connections[fromNode.name].main = [];
-      }
-
-      // Ensure the output index exists
-      const outputIndex = request.from.outputIndex || 0;
-      if (!workflow.connections[fromNode.name].main[outputIndex]) {
-        workflow.connections[fromNode.name].main[outputIndex] = [];
-      }
-
-      // Add the connection
-      const connection = {
-        node: toNode.name,
-        type: 'main',
-        index: request.to.inputIndex || 0,
-      };
-
-      // Check if connection already exists
-      const existingConnection = workflow.connections[fromNode.name].main[outputIndex]
-        .find(conn => conn.node === connection.node && conn.index === connection.index);
-      
-      if (!existingConnection) {
-        workflow.connections[fromNode.name].main[outputIndex].push(connection);
-      }
+      const connections: any = workflow.connections as any;
+      if (!connections[fromNode.name]) connections[fromNode.name] = {};
+      const fromMain = connections[fromNode.name].main || [];
+      connections[fromNode.name].main = fromMain;
+      const outputIndex = request.from.outputIndex ?? 0;
+      if (!fromMain[outputIndex]) fromMain[outputIndex] = [];
+      const connection = { node: toNode.name, type: 'main', index: request.to.inputIndex ?? 0 };
+      const exists = fromMain[outputIndex].some((conn: any) => conn.node === connection.node && conn.index === connection.index);
+      if (!exists) fromMain[outputIndex].push(connection);
     });
-    
     return { ok: true };
   }
 
   async deleteNode(request: DeleteNodeRequest): Promise<DeleteNodeResponse> {
     await this.performWorkflowUpdate(request.workflowId, (workflow) => {
-      const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
+      const nodeIndex = workflow.nodes.findIndex((node) => node.id === request.nodeId);
       if (nodeIndex === -1) {
         throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
       }
-
       const nodeName = workflow.nodes[nodeIndex].name;
-      
-      // Remove the node
       workflow.nodes.splice(nodeIndex, 1);
-      
-      // Remove all connections to and from this node
-      // Remove outgoing connections
-      delete workflow.connections[nodeName];
-      
-      // Remove incoming connections
-      Object.keys(workflow.connections).forEach(sourceNodeName => {
-        Object.keys(workflow.connections[sourceNodeName]).forEach(outputType => {
-          workflow.connections[sourceNodeName][outputType] = 
-            workflow.connections[sourceNodeName][outputType].map(outputArray => 
-              outputArray.filter(conn => conn.node !== nodeName)
-            );
+      const connections: any = workflow.connections as any;
+      delete connections[nodeName];
+      Object.keys(connections).forEach((sourceNodeName) => {
+        Object.keys(connections[sourceNodeName]).forEach((outputType) => {
+          connections[sourceNodeName][outputType] = connections[sourceNodeName][outputType].map((outputArray: any[]) =>
+            outputArray.filter((conn: any) => conn.node !== nodeName),
+          );
         });
       });
     });
-    
     return { ok: true };
   }
 
   async setNodePosition(request: SetNodePositionRequest): Promise<SetNodePositionResponse> {
     await this.performWorkflowUpdate(request.workflowId, (workflow) => {
-      const nodeIndex = workflow.nodes.findIndex(node => node.id === request.nodeId);
+      const nodeIndex = workflow.nodes.findIndex((node) => node.id === request.nodeId);
       if (nodeIndex === -1) {
         throw new Error(`Node with id ${request.nodeId} not found in workflow ${request.workflowId}`);
       }
-
       workflow.nodes[nodeIndex].position = [request.x, request.y];
     });
-    
     return { ok: true };
+  }
+
+  async sourceControlPull(): Promise<N8nSourceControlPullResponse> {
+    const response = await this.api.post<N8nApiResponse<N8nSourceControlPullResponse>>('/source-control/pull');
+    return response.data.data;
+  }
+
+  async getCredentialSchema(credentialTypeName: string): Promise<N8nCredentialSchema> {
+    const response = await this.api.get<N8nApiResponse<N8nCredentialSchema>>(`/credential-types/${credentialTypeName}`);
+    return response.data.data;
+  }
+
+  async transferWorkflow(id: number, transferData: TransferRequest): Promise<TransferResponse> {
+    const response = await this.api.put<N8nApiResponse<TransferResponse>>(`/workflows/${id}/transfer`, transferData);
+    return response.data.data;
+  }
+
+  async transferCredential(id: number, transferData: TransferRequest): Promise<TransferResponse> {
+    const response = await this.api.put<N8nApiResponse<TransferResponse>>(`/credentials/${id}/transfer`, transferData);
+    return response.data.data;
+  }
+
+  async listWorkflowTags(workflowId: number): Promise<N8nTag[]> {
+    const response = await this.api.get<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`);
+    return response.data.data;
+  }
+
+  async setWorkflowTags(workflowId: number, tagIds: (string | number)[]): Promise<N8nTag[]> {
+    const response = await this.api.put<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`, { tagIds });
+    return response.data.data;
+  }
+
+  async listTags(limit?: number, cursor?: string): Promise<N8nTagsListResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+    const queryString = params.toString();
+    const url = queryString ? `/tags?${queryString}` : '/tags';
+    const response = await this.api.get<N8nTagsListResponse>(url);
+    return response.data;
+  }
+
+  async getTag(id: number): Promise<N8nTag> {
+    const response = await this.api.get<N8nApiResponse<N8nTag>>(`/tags/${id}`);
+    return response.data.data;
+  }
+
+  async createTag(tag: Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>): Promise<N8nTag> {
+    const response = await this.api.post<N8nApiResponse<N8nTag>>('/tags', tag);
+    return response.data.data;
+  }
+
+  async updateTag(id: number, tag: Partial<Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>>): Promise<N8nTag> {
+    const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, tag);
+    return response.data.data;
+  }
+
+  async deleteTag(id: number): Promise<void> {
+    await this.api.delete(`/tags/${id}`);
+  }
+
+  async listVariables(limit?: number, cursor?: string): Promise<N8nVariablesListResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+    const url = params.toString() ? `/variables?${params.toString()}` : '/variables';
+    const response = await this.api.get<N8nVariablesListResponse>(url);
+    return response.data;
+  }
+
+  async createVariable(variable: Omit<N8nVariable, 'id'>): Promise<N8nVariable> {
+    const response = await this.api.post<N8nApiResponse<N8nVariable>>('/variables', variable);
+    return response.data.data;
+  }
+
+  async updateVariable(id: string, variable: Partial<N8nVariable>): Promise<N8nVariable> {
+    const response = await this.api.put<N8nApiResponse<N8nVariable>>(`/variables/${id}`, variable);
+    return response.data.data;
+  }
+
+  async deleteVariable(id: string): Promise<{ ok: boolean }> {
+    await this.api.delete(`/variables/${id}`);
+    return { ok: true };
+  }
+
+  async listExecutions(options?: { limit?: number; cursor?: string; workflowId?: string }): Promise<N8nExecutionsListResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+    if (options?.workflowId) params.append('workflowId', options.workflowId);
+    const url = `/executions${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await this.api.get<N8nExecutionsListResponse>(url);
+    return response.data;
+  }
+
+  async getExecution(id: string): Promise<N8nExecution> {
+    const response = await this.api.get<N8nApiResponse<N8nExecution>>(`/executions/${id}`);
+    return response.data.data;
+  }
+
+  async deleteExecution(id: string): Promise<N8nExecutionDeleteResponse> {
+    await this.api.delete(`/executions/${id}`);
+    return { success: true };
+  }
+
+  async getWebhookUrls(workflowId: number, nodeId: string): Promise<N8nWebhookUrls> {
+    const workflow = await this.getWorkflow(workflowId);
+    const webhookNode = workflow.nodes.find((node) => node.id === nodeId);
+    if (!webhookNode) throw new Error(`Node with ID '${nodeId}' not found in workflow ${workflowId}`);
+    if (webhookNode.type !== 'n8n-nodes-base.webhook') {
+      throw new Error(`Node '${nodeId}' is not a webhook node (type: ${webhookNode.type})`);
+    }
+    const path = webhookNode.parameters?.path || '';
+    if (!path) throw new Error(`Webhook node '${nodeId}' does not have a path configured`);
+    const testUrl = `${this.baseUrl}/webhook-test/${path}`;
+    const productionUrl = `${this.baseUrl}/webhook/${path}`;
+    return { testUrl, productionUrl };
+  }
+
+  async runOnce(workflowId: number, input?: any): Promise<N8nExecutionResponse> {
+    try {
+      const workflow = await this.getWorkflow(workflowId);
+      const hasTriggerNodes = workflow.nodes.some(
+        (node) => node.type === 'n8n-nodes-base.webhook' || node.type === 'n8n-nodes-base.cron' || node.type.includes('trigger'),
+      );
+      if (hasTriggerNodes) {
+        const executionData = { workflowData: workflow, runData: input || {} };
+        const response = await this.api.post<N8nApiResponse<any>>('/executions', executionData);
+        return { executionId: response.data.data.id || response.data.data.executionId, status: response.data.data.status || 'running' };
+      } else {
+        const response = await this.api.post<N8nApiResponse<any>>(`/workflows/${workflowId}/execute`, { data: input || {} });
+        return { executionId: response.data.data.id || response.data.data.executionId, status: response.data.data.status || 'running' };
+      }
+    } catch (error: any) {
+      if (error instanceof Error && error.message.includes('404')) {
+        throw new Error(`Workflow ${workflowId} not found or cannot be executed manually`);
+      }
+      throw error;
+    }
   }
 }
