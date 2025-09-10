@@ -19,7 +19,7 @@ jest.mock('@modelcontextprotocol/sdk/types.js', () => ({
   ListToolsRequestSchema: 'mocked-list-tools-schema',
 }));
 
-jest.mock('../n8n-client', () => ({
+jest.mock('../n8n-client.js', () => ({
   N8nClient: jest.fn().mockImplementation(() => ({
     listWorkflows: jest.fn(),
     getWorkflow: jest.fn(),
@@ -28,7 +28,11 @@ jest.mock('../n8n-client', () => ({
     deleteWorkflow: jest.fn(),
     activateWorkflow: jest.fn(),
     deactivateWorkflow: jest.fn(),
-  sourceControlPull: jest.fn(),
+    getNodeTypes: jest.fn(),
+    getNodeTypeByName: jest.fn(),
+    getNodeTypeExamples: jest.fn(),
+    validateNodeConfiguration: jest.fn(),
+    sourceControlPull: jest.fn(),
     listVariables: jest.fn(),
     createVariable: jest.fn(),
     updateVariable: jest.fn(),
@@ -94,13 +98,59 @@ describe('N8nMcpServer', () => {
         expect(toolNames).toContain('run_once');
         expect(toolNames).toContain('list_workflow_tags');
         expect(toolNames).toContain('set_workflow_tags');
-  expect(toolNames).toContain('get_credential_schema');
-  expect(toolNames).toContain('list_variables');
-  expect(toolNames).toContain('create_variable');
-  expect(toolNames).toContain('update_variable');
-  expect(toolNames).toContain('delete_variable');
-  expect(toolNames).toContain('source_control_pull');
+        expect(toolNames).toContain('get_credential_schema');
+        expect(toolNames).toContain('list_variables');
+        expect(toolNames).toContain('create_variable');
+        expect(toolNames).toContain('update_variable');
+        expect(toolNames).toContain('delete_variable');
+        expect(toolNames).toContain('source_control_pull');
+        expect(toolNames).toContain('list_node_types');
+        expect(toolNames).toContain('get_node_type');
+        expect(toolNames).toContain('examples');
+        expect(toolNames).toContain('validate_node_config');
       });
+    });
+  });
+
+  describe('MCP Tools', () => {
+    it('should register node type metadata tools', async () => {
+      const { N8nMcpServer } = await import('../index.js');
+      const server = new N8nMcpServer();
+      
+      // Check that setRequestHandler was called with the expected schemas
+      expect(mockServer.setRequestHandler).toHaveBeenCalledWith(
+        'mocked-list-tools-schema',
+        expect.any(Function)
+      );
+      expect(mockServer.setRequestHandler).toHaveBeenCalledWith(
+        'mocked-call-tool-schema',
+        expect.any(Function)
+      );
+    });
+
+    it('should include new tools in list_tools response', async () => {
+      const { N8nMcpServer } = await import('../index.js');
+      new N8nMcpServer();
+      
+      // Get the list tools handler
+      const listToolsCall = mockServer.setRequestHandler.mock.calls.find(
+        call => call[0] === 'mocked-list-tools-schema'
+      );
+      expect(listToolsCall).toBeDefined();
+      
+      if (listToolsCall) {
+        const listToolsHandler = listToolsCall[1] as () => Promise<any>;
+        const response = await listToolsHandler();
+        
+        expect(response.tools).toBeDefined();
+        expect(Array.isArray(response.tools)).toBe(true);
+        
+        const toolNames = response.tools.map((tool: any) => tool.name);
+        expect(toolNames).toContain('list_node_types');
+        expect(toolNames).toContain('get_node_type');
+        expect(toolNames).toContain('examples');
+        expect(toolNames).toContain('validate_node_config');
+      }
     });
   });
 });

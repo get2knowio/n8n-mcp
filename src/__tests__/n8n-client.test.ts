@@ -3,6 +3,9 @@ import axios from 'axios';
 import { N8nClient } from '../n8n-client';
 import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls, N8nCredentialSchema, N8nSourceControlPullResponse } from '../types';
 
+// Mock axios
+jest.mock('axios');
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('N8nClient', () => {
@@ -348,6 +351,101 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('Node Type Methods', () => {
+    describe('getNodeTypes', () => {
+      it('should return list of node types from catalog', async () => {
+        const result = await client.getNodeTypes();
+        
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBeGreaterThan(0);
+        
+        const httpNode = result.find(n => n.name === 'n8n-nodes-base.httpRequest');
+        expect(httpNode).toBeDefined();
+        expect(httpNode?.displayName).toBe('HTTP Request');
+      });
+    });
+
+    describe('getNodeTypeByName', () => {
+      it('should return specific node type by name', async () => {
+        const result = await client.getNodeTypeByName('n8n-nodes-base.httpRequest');
+        
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('n8n-nodes-base.httpRequest');
+        expect(result?.displayName).toBe('HTTP Request');
+      });
+
+      it('should return null for unknown node type', async () => {
+        const result = await client.getNodeTypeByName('unknown-node-type');
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('getNodeTypeExamples', () => {
+      it('should return examples for HTTP Request node', async () => {
+        const result = await client.getNodeTypeExamples('n8n-nodes-base.httpRequest');
+        
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBeGreaterThan(0);
+        
+        const getExample = result.find(e => e.name === 'Simple GET Request');
+        expect(getExample).toBeDefined();
+        expect(getExample?.workflow.nodes).toHaveLength(1);
+      });
+
+      it('should return empty array for unknown node type', async () => {
+        const result = await client.getNodeTypeExamples('unknown-node-type');
+        expect(Array.isArray(result)).toBe(true);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('validateNodeConfiguration', () => {
+      it('should validate valid configuration', async () => {
+        const result = await client.validateNodeConfiguration(
+          'n8n-nodes-base.httpRequest',
+          {
+            method: 'GET',
+            url: 'https://api.example.com',
+            authentication: 'none',
+          }
+        );
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should catch validation errors', async () => {
+        const result = await client.validateNodeConfiguration(
+          'n8n-nodes-base.httpRequest',
+          {
+            method: 'INVALID_METHOD',
+            // missing required url
+          }
+        );
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.length).toBeGreaterThan(0);
+      });
+
+      it('should validate with credentials', async () => {
+        const result = await client.validateNodeConfiguration(
+          'n8n-nodes-base.httpRequest',
+          {
+            method: 'GET',
+            url: 'https://api.example.com',
+            authentication: 'basicAuth',
+          },
+          {
+            httpBasicAuth: 'my-credential',
+          }
+        );
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
     });
   });
 

@@ -30,9 +30,14 @@ import {
   SetNodePositionRequest,
   SetNodePositionResponse,
   PatchOperation,
-  ApplyOpsResponse
+  ApplyOpsResponse,
+  N8nNodeType,
+  N8nNodeExample,
+  ValidationResult
 } from './types.js';
 import { WorkflowOperationsProcessor } from './operations.js';
+import { getNodeTypes, getNodeType, getNodeExamples } from './node-registry.js';
+import { validateFullNodeConfig } from './node-validator.js';
 
 export class N8nClient {
   private api: AxiosInstance;
@@ -113,6 +118,44 @@ export class N8nClient {
     return response.data.data;
   }
 
+  // Node type metadata methods
+  
+  /**
+   * Get all available node types from curated catalog
+   */
+  async getNodeTypes(): Promise<N8nNodeType[]> {
+    // Try to get from n8n API first (if available in future)
+    // For now, use curated catalog
+    return getNodeTypes();
+  }
+
+  /**
+   * Get a specific node type by name
+   */
+  async getNodeTypeByName(typeName: string): Promise<N8nNodeType | null> {
+    // Try to get from n8n API first (if available in future)
+    // For now, use curated catalog
+    const nodeType = getNodeType(typeName);
+    return nodeType || null;
+  }
+
+  /**
+   * Get examples for a specific node type
+   */
+  async getNodeTypeExamples(typeName: string): Promise<N8nNodeExample[]> {
+    return getNodeExamples(typeName);
+  }
+
+  /**
+   * Validate a node configuration
+   */
+  async validateNodeConfiguration(
+    nodeType: string,
+    parameters: Record<string, any>,
+    credentials?: Record<string, string>
+  ): Promise<ValidationResult> {
+    return validateFullNodeConfig(nodeType, parameters, credentials);
+  }
   /**
    * Apply a batch of operations to a workflow atomically
    */
