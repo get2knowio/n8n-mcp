@@ -238,7 +238,6 @@ describe('N8nClient', () => {
       mockApi.put.mockResolvedValue(mockResponse);
 
       const result = await client.updateWorkflow(1, updateData);
-
       expect(mockApi.put).toHaveBeenCalledWith('/workflows/1', updateData, { headers: {} });
       expect(result).toEqual(updatedWorkflow);
     });
