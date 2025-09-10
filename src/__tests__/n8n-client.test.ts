@@ -138,7 +138,8 @@ describe('N8nClient', () => {
     it('should return list of workflows', async () => {
       const mockResponse = {
         data: {
-          data: [mockWorkflow]
+          data: [mockWorkflow],
+          nextCursor: undefined
         }
       };
       mockApi.get.mockResolvedValue(mockResponse);
@@ -146,7 +147,22 @@ describe('N8nClient', () => {
       const result = await client.listWorkflows();
 
       expect(mockApi.get).toHaveBeenCalledWith('/workflows');
-      expect(result).toEqual([mockWorkflow]);
+      expect(result).toEqual({ data: [mockWorkflow], nextCursor: undefined });
+    });
+
+    it('should handle pagination parameters and nextCursor', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockWorkflow],
+          nextCursor: 'next_cursor_123'
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listWorkflows(10, 'cursor_123');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/workflows?limit=10&cursor=cursor_123');
+      expect(result).toEqual({ data: [mockWorkflow], nextCursor: 'next_cursor_123' });
     });
 
     it('should handle API errors', async () => {

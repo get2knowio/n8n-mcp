@@ -195,7 +195,20 @@ Environment variables:
   try {
     switch (command) {
       case 'list': {
-        const workflows = await client.listWorkflows();
+        // Support optional pagination flags: --limit <n> --cursor <cursor>
+        let limit: number | undefined;
+        let cursor: string | undefined;
+        for (let i = 1; i < args.length; i++) {
+          if (args[i] === '--limit' && args[i + 1]) {
+            limit = parseInt(args[i + 1]);
+            i++;
+          } else if (args[i] === '--cursor' && args[i + 1]) {
+            cursor = args[i + 1];
+            i++;
+          }
+        }
+
+        const workflows = await client.listWorkflows(limit, cursor);
         console.log(JSON.stringify(workflows, null, 2));
         break;
       }
@@ -298,7 +311,7 @@ Environment variables:
         break;
       }
       case 'variables': {
-        await handleVariablesCommand(client, args.slice(1));
+  await handleVariablesCommand(client, args.slice(1));
         break;
       }
       case 'executions': {

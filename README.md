@@ -88,6 +88,9 @@ For testing and development, you can use the CLI interface:
 # List all workflows
 npm run cli list
 
+# List workflows with pagination
+npm run cli list --limit 25 --cursor NEXT_CURSOR
+
 # Get a specific workflow
 npm run cli get 1
 
@@ -119,6 +122,8 @@ npm run cli workflows set-tags 1 --tags tag1,tag2,tag3
 
 # Variables management
 npm run cli variables list
+# Variables with pagination
+npm run cli variables list --limit 50 --cursor NEXT_CURSOR
 npm run cli variables create --key mykey --value myvalue
 npm run cli variables update var-123 --value newvalue
 npm run cli variables delete var-123

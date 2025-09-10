@@ -23,9 +23,13 @@ export class N8nClient {
     }
   }
 
-  async listWorkflows(): Promise<N8nWorkflow[]> {
-    const response = await this.api.get<N8nWorkflowsListResponse>('/workflows');
-    return response.data.data;
+  async listWorkflows(limit?: number, cursor?: string): Promise<N8nWorkflowsListResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+    const url = params.toString() ? `/workflows?${params.toString()}` : '/workflows';
+    const response = await this.api.get<N8nWorkflowsListResponse>(url);
+    return response.data;
   }
 
   async getWorkflow(id: number): Promise<N8nWorkflow> {
@@ -137,8 +141,12 @@ export class N8nClient {
   }
 
   // Variables API methods
-  async listVariables(): Promise<N8nVariablesListResponse> {
-    const response = await this.api.get<N8nVariablesListResponse>('/variables');
+  async listVariables(limit?: number, cursor?: string): Promise<N8nVariablesListResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+    const url = params.toString() ? `/variables?${params.toString()}` : '/variables';
+    const response = await this.api.get<N8nVariablesListResponse>(url);
     return response.data;
   }
 

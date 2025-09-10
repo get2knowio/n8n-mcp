@@ -48,6 +48,7 @@ export interface N8nApiResponse<T> {
 
 export interface N8nWorkflowsListResponse {
   data: N8nWorkflow[];
+  nextCursor?: string;
 }
 
 export interface N8nCredential {
