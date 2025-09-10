@@ -404,4 +404,3 @@ export interface ApplyOpsResponse {
   workflow?: N8nWorkflow;
   errors?: OperationError[];
 }
-}
