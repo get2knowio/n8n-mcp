@@ -139,7 +139,7 @@ npm run cli tags delete 1
 1. **list_workflows** - List all workflows
 2. **get_workflow** - Get workflow by ID
 3. **create_workflow** - Create a new workflow
-4. **update_workflow** - Update existing workflow
+4. **update_workflow** - Update existing workflow (supports optional optimistic concurrency)
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
@@ -161,6 +161,23 @@ npm run cli tags delete 1
 19. **create_tag** - Create a new tag
 20. **update_tag** - Update existing tag
 21. **delete_tag** - Delete a tag
+
+#### Optimistic Concurrency for Updates
+
+The `update_workflow` tool supports optional optimistic concurrency control via the `ifMatch` parameter:
+
+```json
+{
+  "id": 1,
+  "name": "Updated Workflow Name",
+  "ifMatch": "W/\"1234567890\""
+}
+```
+
+When `ifMatch` is provided:
+- The request includes an `If-Match` header with the provided value
+- If the workflow has been modified by another user (412 Precondition Failed), you'll receive a clear error message
+- This helps prevent conflicting updates in multi-user environments
 
 ## Example Workflow Creation
 
