@@ -93,6 +93,25 @@ npm run test    # Run test suite
 
 **CI Pipeline Requirements**: The project tests against Node.js versions 18.x, 20.x, and 22.x. Current development uses Node.js v20.19.4.
 
+## Pull Request Hygiene: Auto-close Issues
+
+**ALWAYS** include a closing keyword in the PR description body so GitHub auto-closes related issues when the PR merges.
+
+- Use one of: `Fixes #<issue>`, `Closes #<issue>`, or `Resolves #<issue>`
+- Put the keywords in the PR BODY (not only the title or commits)
+- For multiple issues, list each keyword on its own line
+- This works with squash merges as long as the PR body contains the keywords
+
+Example:
+
+```
+Implements execution management tools and CLI.
+
+Fixes #12
+```
+
+Copilot coding agent guideline: When opening PRs for this repo, always add the correct closing keywords for any issues being addressed. If a PR merged without the keywords, add a comment on the issue referencing the PR and close the issue manually.
+
 ## Architecture and Key Components
 
 ### Project Structure
