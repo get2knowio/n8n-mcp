@@ -9,6 +9,7 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 
 ## Features
 
+### Workflow Management
 - **List Workflows**: Get all workflows from your n8n instance
 - **Get Workflow**: Retrieve a specific workflow by ID
 - **Create Workflow**: Create new workflows with nodes and connections
@@ -17,6 +18,27 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Activate/Deactivate**: Control workflow execution state
 - **Credential Management**: List credentials and resolve credential aliases
 - **Credential Aliasing**: Use human-friendly names for credentials in workflows
+- **Source Control**: Pull changes from source control to sync with remote
+- **Get Credential Schema**: Fetch JSON schema for credential types to validate or drive UIs
+- **Transfer Workflows**: Move workflows across projects or owners
+- **Transfer Credentials**: Move credentials across projects or owners
+- **List Executions**: Get workflow executions with pagination support
+- **Get Execution**: Retrieve specific execution details by ID
+- **Delete Execution**: Remove execution records
+
+### Tags Management
+- **Tags CRUD**: Create, read, update, and delete tags with pagination support
+- **List Tags**: Get all tags with optional pagination
+- **Create Tag**: Create new tags with name and optional color
+- **Update Tag**: Update existing tag name and/or color
+- **Delete Tag**: Remove tags by ID
+
+### Variables Management
+- **List Variables**: Get all variables with pagination support
+- **Create Variable**: Create new key-value variables (enforces unique keys)
+- **Update Variable**: Modify existing variable values
+- **Delete Variable**: Remove variables
+- **CLI & MCP Support**: Full access via both command line and MCP tools
 
 ## Installation
 
@@ -68,6 +90,9 @@ For testing and development, you can use the CLI interface:
 # List all workflows
 npm run cli list
 
+# List workflows with pagination
+npm run cli list --limit 25 --cursor NEXT_CURSOR
+
 # Get a specific workflow
 npm run cli get 1
 
@@ -80,19 +105,115 @@ npm run cli delete 1
 # Activate/deactivate workflows
 npm run cli activate 1
 npm run cli deactivate 1
+
+# Source control operations
+npm run cli source-control pull
+# Get credential schema
+npm run cli get-credential-schema httpHeaderAuth
+
+# Transfer workflows between projects/owners (Enterprise feature)
+# Note: Transfer operations require appropriate permissions and enterprise n8n setup
+npm run cli transfer_workflow 1 --project-id "project-123"
+npm run cli transfer_credential 2 --new-owner-id "user-456"
+
+# List workflow tags
+npm run cli workflows tags 1
+
+# Set workflow tags
+npm run cli workflows set-tags 1 --tags tag1,tag2,tag3
+
+# Variables management
+npm run cli variables list
+# Variables with pagination
+npm run cli variables list --limit 50 --cursor NEXT_CURSOR
+npm run cli variables create --key mykey --value myvalue
+npm run cli variables update var-123 --value newvalue
+npm run cli variables delete var-123
+
+# List executions
+npm run cli executions list
+
+# List executions with pagination and filtering
+npm run cli executions list --limit 50 --workflow-id 1
+
+# Get a specific execution
+npm run cli executions get exec_123
+
+# Delete an execution
+npm run cli executions delete exec_123
+
+# Get webhook URLs for a webhook node
+npm run cli webhook-urls 1 webhook-node-id
+
+# Execute a workflow manually once
+npm run cli run-once 1
+
+# Execute a workflow with input data
+npm run cli run-once 1 input-data.json
+
+# Tag commands
+npm run cli tags list
+npm run cli tags list 10
+npm run cli tags get 1
+npm run cli tags create "My Tag" "#ff0000"
+npm run cli tags update 1 "Updated Tag" "#00ff00"
+npm run cli tags delete 1
 ```
 
 ### Available Tools
 
+#### Workflow Tools
 1. **list_workflows** - List all workflows
 2. **get_workflow** - Get workflow by ID
 3. **create_workflow** - Create a new workflow
-4. **update_workflow** - Update existing workflow
+4. **update_workflow** - Update existing workflow (supports optional optimistic concurrency)
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
+7. **deactivate_workflow** - Deactivate a workflow
 8. **list_credentials** - List all credentials
 9. **resolve_credential_alias** - Resolve a credential alias to its ID
+10. **source_control_pull** - Pull changes from source control
+11. **get_credential_schema** - Get JSON schema for a credential type
+12. **list_workflow_tags** - List tags for a specific workflow
+13. **set_workflow_tags** - Set tags for a specific workflow
+14. **transfer_workflow** - Transfer a workflow to a different project or owner
+15. **transfer_credential** - Transfer a credential to a different project or owner
+16. **list_executions** - List workflow executions with pagination
+17. **get_execution** - Get execution by ID
+18. **delete_execution** - Delete an execution
+19. **webhook_urls** - Get webhook URLs for a webhook node
+20. **run_once** - Execute a workflow manually once
+
+#### Variables Tools
+21. **list_variables** - List all variables with pagination support
+22. **create_variable** - Create a new variable (requires unique key)
+23. **update_variable** - Update an existing variable value
+24. **delete_variable** - Delete a variable
+
+#### Tag Tools
+25. **list_tags** - List all tags with optional pagination
+26. **get_tag** - Get tag by ID
+27. **create_tag** - Create a new tag
+28. **update_tag** - Update existing tag
+29. **delete_tag** - Delete a tag
+
+#### Optimistic Concurrency for Updates
+
+The `update_workflow` tool supports optional optimistic concurrency control via the `ifMatch` parameter:
+
+```json
+{
+  "id": 1,
+  "name": "Updated Workflow Name",
+  "ifMatch": "W/\"1234567890\""
+}
+```
+
+When `ifMatch` is provided:
+- The request includes an `If-Match` header with the provided value
+- If the workflow has been modified by another user (412 Precondition Failed), you'll receive a clear error message
+- This helps prevent conflicting updates in multi-user environments
 
 ## Example Workflow Creation
 
@@ -180,6 +301,242 @@ Use the `resolve_credential_alias` tool to resolve a credential name to its ID:
 - **No Match**: Throws an error if no credentials match the alias
 - **Multiple Matches**: Throws an error if multiple credentials have the same name
 - **Numeric Values**: Credential values that are all digits are treated as IDs and left unchanged
+
+## Transfer Operations (Enterprise)
+
+The transfer tools allow moving workflows and credentials across projects and owners in enterprise n8n setups:
+
+### Transfer Workflow
+```javascript
+// Transfer to a different project
+{
+  "id": 1,
+  "projectId": "project-123"
+}
+
+// Transfer to a different owner
+{
+  "id": 1,
+  "newOwnerId": "user-456"
+}
+
+// Transfer to both different project and owner
+{
+  "id": 1,
+  "projectId": "project-123",
+  "newOwnerId": "user-456"
+}
+```
+
+### Transfer Credential
+```javascript
+// Same structure as workflow transfer
+{
+  "id": 2,
+  "projectId": "project-789",
+  "newOwnerId": "user-123"
+}
+```
+
+**Note**: Transfer operations require:
+- Enterprise n8n installation with project/ownership features enabled
+- Appropriate permissions for the user performing the transfer
+- Valid target project IDs and user IDs
+
+Permission errors will be returned with clear error messages if the operation is not allowed.
+
+## Tag Management
+
+Tags are used to organize and group workflows in n8n. The MCP server provides comprehensive tag management capabilities:
+
+### Tag Operations
+
+- **List Tags**: Get all tags with optional pagination
+- **Get Tag**: Retrieve a specific tag by ID
+- **Create Tag**: Create a new tag with name and optional color
+- **Update Tag**: Modify tag name and/or color
+- **Delete Tag**: Remove a tag
+
+### Tag Examples
+
+```json
+{
+  "id": 1,
+  "name": "Production",
+  "color": "#ff0000",
+  "createdAt": "2023-01-01T00:00:00.000Z",
+  "updatedAt": "2023-01-01T00:00:00.000Z"
+}
+```
+
+The tag API supports:
+- **Pagination**: Use `limit` and `cursor` parameters when listing tags
+- **Color Support**: Optional hex color codes for visual organization
+- **Error Handling**: Proper 409 responses for duplicate names, 404 for missing tags
+
+## Example Variable Management
+
+Variables in n8n are simple key-value pairs that can be used for configuration and state management:
+
+```json
+{
+  "id": "var-123",
+  "key": "api_endpoint",
+  "value": "https://api.example.com/v1"
+}
+```
+
+### CLI Usage Examples
+
+```bash
+# Create a variable
+npm run cli variables create --key environment --value production
+
+# List all variables
+npm run cli variables list
+
+# Update a variable value
+npm run cli variables update var-123 --value "https://api.newdomain.com/v2"
+
+# Delete a variable
+npm run cli variables delete var-123
+```
+
+### MCP Tool Usage
+
+Variables can be managed through MCP tools for integration with AI agents:
+
+- `list_variables()` - Returns paginated list of all variables
+- `create_variable({ key: "config_mode", value: "advanced" })` - Creates new variable
+- `update_variable({ id: "var-123", value: "new_value" })` - Updates existing variable
+- `delete_variable({ id: "var-123" })` - Removes variable
+
+## Execution Management
+
+The server provides comprehensive execution management capabilities:
+
+### Listing Executions
+
+```bash
+# List recent executions
+npm run cli executions list
+
+# List with pagination
+npm run cli executions list --limit 20 --cursor next_page_cursor
+
+# Filter by workflow
+npm run cli executions list --workflow-id 1
+```
+
+The `list_executions` tool supports:
+- **limit**: Maximum number of executions to return (pagination)
+- **cursor**: Pagination cursor for getting next/previous pages
+- **workflowId**: Filter executions by specific workflow ID
+
+### Getting Execution Details
+
+```bash
+npm run cli executions get exec_12345
+```
+
+Returns complete execution data including:
+- Execution status and timing
+- Input/output data
+- Error details (if failed)
+- Node execution results
+
+### Deleting Executions
+
+```bash
+npm run cli executions delete exec_12345
+```
+
+Permanently removes execution records to help manage storage.
+
+### Pagination Notes
+
+When listing executions:
+- Use `limit` parameter to control page size
+- Use `nextCursor` from response to get the next page
+- Cursors are opaque strings - store and use them as-is
+- Empty `nextCursor` indicates no more pages available
+
+## Webhook URLs
+
+The `webhook_urls` tool helps you get the correct webhook URLs for webhook nodes in your workflows. This is useful for:
+
+- Getting URLs to configure external systems that need to call your webhooks
+- Testing webhook endpoints during development
+- Documentation and integration guides
+
+### Prerequisites for Webhook Nodes
+
+For the `webhook_urls` tool to work correctly, your webhook node must:
+
+1. Be of type `n8n-nodes-base.webhook`
+2. Have a `path` parameter configured
+3. Be part of an existing workflow
+
+### URL Format
+
+The tool returns URLs in n8n's standard format:
+- **Test URL**: `${baseUrl}/webhook-test/${path}` - Used for testing during workflow development
+- **Production URL**: `${baseUrl}/webhook/${path}` - Used when the workflow is active
+
+### Example Usage
+
+```javascript
+// Get webhook URLs for a node
+const urls = await client.getWebhookUrls(1, 'webhook-node-id');
+console.log(urls);
+// Output:
+// {
+//   "testUrl": "http://localhost:5678/webhook-test/my-webhook",
+//   "productionUrl": "http://localhost:5678/webhook/my-webhook"
+// }
+```
+
+## Manual Workflow Execution
+
+The `run_once` tool allows you to manually execute workflows, which is useful for:
+
+- Testing workflows during development
+- Triggering workflows programmatically
+- Running workflows with specific input data
+- Debugging workflow issues
+
+### Workflow Types
+
+The tool handles different workflow types gracefully:
+
+1. **Manual Workflows**: Workflows that start with manual triggers (e.g., Start node)
+2. **Trigger Workflows**: Workflows with automatic triggers (e.g., Webhook, Cron, etc.)
+
+### Input Data
+
+You can optionally provide input data when executing a workflow:
+
+```javascript
+// Execute without input
+const execution = await client.runOnce(1);
+
+// Execute with input data
+const execution = await client.runOnce(1, { 
+  name: "John Doe", 
+  email: "john@example.com" 
+});
+```
+
+### Response Format
+
+The tool returns execution details:
+
+```javascript
+{
+  "executionId": "uuid-execution-id",
+  "status": "running" // or "completed", "failed", etc.
+}
+```
 
 ## Development
 

@@ -1,0 +1,10 @@
+{
+  "userId": "12345",
+  "action": "create_user",
+  "data": {
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "department": "Engineering"
+  },
+  "timestamp": "2024-01-01T12:00:00Z"
+}
