@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls, N8nExecutionResponse, TransferRequest } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -230,6 +230,107 @@ export class N8nMcpServer {
                 },
               },
               required: ['workflowId', 'tagIds'],
+            },
+          },
+          {
+            name: 'transfer_workflow',
+            description: 'Transfer an n8n workflow to a different project or owner',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'The target project ID (optional)',
+                },
+                newOwnerId: {
+                  type: 'string',
+                  description: 'The new owner ID (optional)',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'transfer_credential',
+            description: 'Transfer an n8n credential to a different project or owner',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The credential ID',
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'The target project ID (optional)',
+                },
+                newOwnerId: {
+                  type: 'string',
+                  description: 'The new owner ID (optional)',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'transfer_credential',
+            description: 'Transfer an n8n credential to a different project or owner',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The credential ID',
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'The target project ID (optional)',
+                },
+                newOwnerId: {
+                  type: 'string',
+                  description: 'The new owner ID (optional)',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'list_executions',
+            description: 'List n8n workflow executions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of executions to return',
+                },
+                cursor: {
+                  type: 'string',
+                  description: 'Cursor for pagination',
+                },
+                workflowId: {
+                  type: 'string',
+                  description: 'Filter executions by workflow ID',
+                },
+              },
+            },
+          },
+          {
+            name: 'get_execution',
+            description: 'Get a specific n8n execution by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'The execution ID',
+                },
+              },
+              required: ['id'],
             },
           },
           {
@@ -496,6 +597,12 @@ export class N8nMcpServer {
           case 'set_workflow_tags':
             return await this.handleSetWorkflowTags(request.params.arguments as { workflowId: number; tagIds: (string | number)[] });
 
+          case 'transfer_workflow':
+            return await this.handleTransferWorkflow(request.params.arguments as unknown as { id: number } & TransferRequest);
+
+          case 'transfer_credential':
+            return await this.handleTransferCredential(request.params.arguments as unknown as { id: number } & TransferRequest);
+
           case 'list_variables':
             return await this.handleListVariables();
 
@@ -660,6 +767,32 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow tags updated successfully:\n${JSON.stringify(tags, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleTransferWorkflow(args: { id: number } & TransferRequest) {
+    const { id, ...transferData } = args;
+    const result = await this.n8nClient.transferWorkflow(id, transferData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Workflow transferred successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleTransferCredential(args: { id: number } & TransferRequest) {
+    const { id, ...transferData } = args;
+    const result = await this.n8nClient.transferCredential(id, transferData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Credential transferred successfully:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };

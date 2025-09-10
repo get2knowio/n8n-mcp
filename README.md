@@ -16,6 +16,8 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Transfer Workflows**: Move workflows across projects or owners
+- **Transfer Credentials**: Move credentials across projects or owners
 - **List Executions**: Get workflow executions with pagination support
 - **Get Execution**: Retrieve specific execution details by ID
 - **Delete Execution**: Remove execution records
@@ -97,6 +99,11 @@ npm run cli delete 1
 npm run cli activate 1
 npm run cli deactivate 1
 
+# Transfer workflows between projects/owners (Enterprise feature)
+# Note: Transfer operations require appropriate permissions and enterprise n8n setup
+npm run cli transfer_workflow 1 --project-id "project-123"
+npm run cli transfer_credential 2 --new-owner-id "user-456"
+
 # List workflow tags
 npm run cli workflows tags 1
 
@@ -151,24 +158,26 @@ npm run cli tags delete 1
 7. **deactivate_workflow** - Deactivate a workflow
 8. **list_workflow_tags** - List tags for a specific workflow
 9. **set_workflow_tags** - Set tags for a specific workflow
-10. **list_executions** - List workflow executions with pagination
-11. **get_execution** - Get execution by ID
-12. **delete_execution** - Delete an execution
-13. **webhook_urls** - Get webhook URLs for a webhook node
-14. **run_once** - Execute a workflow manually once
+10. **transfer_workflow** - Transfer a workflow to a different project or owner
+11. **transfer_credential** - Transfer a credential to a different project or owner
+12. **list_executions** - List workflow executions with pagination
+13. **get_execution** - Get execution by ID
+14. **delete_execution** - Delete an execution
+15. **webhook_urls** - Get webhook URLs for a webhook node
+16. **run_once** - Execute a workflow manually once
 
 #### Variables Tools
-15. **list_variables** - List all variables with pagination support
-16. **create_variable** - Create a new variable (requires unique key)
-17. **update_variable** - Update an existing variable value
-18. **delete_variable** - Delete a variable
+17. **list_variables** - List all variables with pagination support
+18. **create_variable** - Create a new variable (requires unique key)
+19. **update_variable** - Update an existing variable value
+20. **delete_variable** - Delete a variable
 
 #### Tag Tools
-19. **list_tags** - List all tags with optional pagination
-20. **get_tag** - Get tag by ID
-21. **create_tag** - Create a new tag
-22. **update_tag** - Update existing tag
-23. **delete_tag** - Delete a tag
+21. **list_tags** - List all tags with optional pagination
+22. **get_tag** - Get tag by ID
+23. **create_tag** - Create a new tag
+24. **update_tag** - Update existing tag
+25. **delete_tag** - Delete a tag
 
 #### Optimistic Concurrency for Updates
 
@@ -211,6 +220,51 @@ When `ifMatch` is provided:
 }
 ```
 
+## Transfer Operations (Enterprise)
+
+The transfer tools allow moving workflows and credentials across projects and owners in enterprise n8n setups:
+
+### Transfer Workflow
+```javascript
+// Transfer to a different project
+{
+  "id": 1,
+  "projectId": "project-123"
+}
+
+// Transfer to a different owner
+{
+  "id": 1,
+  "newOwnerId": "user-456"
+}
+
+// Transfer to both different project and owner
+{
+  "id": 1,
+  "projectId": "project-123",
+  "newOwnerId": "user-456"
+}
+```
+
+### Transfer Credential
+```javascript
+// Same structure as workflow transfer
+{
+  "id": 2,
+  "projectId": "project-789",
+  "newOwnerId": "user-123"
+}
+```
+
+**Note**: Transfer operations require:
+- Enterprise n8n installation with project/ownership features enabled
+- Appropriate permissions for the user performing the transfer
+- Valid target project IDs and user IDs
+
+Permission errors will be returned with clear error messages if the operation is not allowed.
+```
+
+=======
 ## Tag Management
 
 Tags are used to organize and group workflows in n8n. The MCP server provides comprehensive tag management capabilities:
