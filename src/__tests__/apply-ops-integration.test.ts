@@ -18,6 +18,7 @@ describe('N8nClient applyOperations', () => {
     const mockAxiosInstance = {
       get: jest.fn(),
       post: jest.fn(),
+      put: jest.fn(),
       patch: jest.fn(),
       delete: jest.fn(),
       defaults: {
@@ -105,7 +106,7 @@ describe('N8nClient applyOperations', () => {
         ]
       };
 
-      mockAxios.patch.mockResolvedValueOnce({
+      mockAxios.put.mockResolvedValueOnce({
         data: {
           data: expectedUpdatedWorkflow
         }
@@ -120,13 +121,13 @@ describe('N8nClient applyOperations', () => {
 
       // Verify API calls
       expect(mockAxios.get).toHaveBeenCalledWith('/workflows/1');
-      expect(mockAxios.patch).toHaveBeenCalledWith('/workflows/1', expect.objectContaining({
+      expect(mockAxios.put).toHaveBeenCalledWith('/workflows/1', expect.objectContaining({
         active: true,
         nodes: expect.arrayContaining([
           expect.objectContaining({ id: 'webhook-1' }),
           expect.objectContaining({ id: 'set-1' })
         ])
-      }));
+      }), expect.any(Object));
     });
 
     it('should return error when operation fails', async () => {
@@ -158,7 +159,7 @@ describe('N8nClient applyOperations', () => {
       expect(result.errors![0].operationIndex).toBe(0);
 
       // Verify that update was not called because operation failed
-      expect(mockAxios.patch).not.toHaveBeenCalled();
+      expect(mockAxios.put).not.toHaveBeenCalled();
     });
 
     it('should handle version drift error from n8n API', async () => {
@@ -179,7 +180,7 @@ describe('N8nClient applyOperations', () => {
 
       // Mock updateWorkflow to fail with version conflict
       const versionError = new Error('409 Conflict: Version drift detected');
-      mockAxios.patch.mockRejectedValueOnce(versionError);
+      mockAxios.put.mockRejectedValueOnce(versionError);
 
       const result = await client.applyOperations(1, operations);
 
@@ -219,7 +220,7 @@ describe('N8nClient applyOperations', () => {
       });
 
       // Mock updateWorkflow to return unchanged workflow
-      mockAxios.patch.mockResolvedValueOnce({
+      mockAxios.put.mockResolvedValueOnce({
         data: {
           data: sampleWorkflow
         }
