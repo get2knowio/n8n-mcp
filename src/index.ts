@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow, N8nCredentialSchema } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls, N8nExecutionResponse, TransferRequest } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -17,6 +17,10 @@ export class N8nMcpServer {
     this.server = new Server({
       name: 'n8n-mcp',
       version: '1.0.0',
+    }, {
+      capabilities: {
+        tools: {},
+      },
     });
 
     this.setupConfig();
@@ -143,6 +147,10 @@ export class N8nMcpServer {
                     type: 'string',
                   },
                 },
+                ifMatch: {
+                  type: 'string',
+                  description: 'Optional If-Match header value for optimistic concurrency control',
+                },
               },
               required: ['id'],
             },
@@ -203,6 +211,255 @@ export class N8nMcpServer {
               required: ['credentialTypeName'],
             },
           },
+          {
+            name: 'list_workflow_tags',
+            description: 'List tags for a specific n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+              },
+              required: ['workflowId'],
+            },
+          },
+          {
+            name: 'set_workflow_tags',
+            description: 'Set tags for a specific n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                tagIds: {
+                  type: 'array',
+                  description: 'Array of tag IDs to set on the workflow',
+                  items: {
+                    type: ['string', 'number'],
+                  },
+                },
+              },
+              required: ['workflowId', 'tagIds'],
+            },
+          },
+          {
+            name: 'transfer_workflow',
+            description: 'Transfer an n8n workflow to a different project or owner',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'The target project ID (optional)',
+                },
+                newOwnerId: {
+                  type: 'string',
+                  description: 'The new owner ID (optional)',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'transfer_credential',
+            description: 'Transfer an n8n credential to a different project or owner',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The credential ID',
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'The target project ID (optional)',
+                },
+                newOwnerId: {
+                  type: 'string',
+                  description: 'The new owner ID (optional)',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'list_executions',
+            description: 'List n8n workflow executions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of executions to return',
+                },
+                cursor: {
+                  type: 'string',
+                  description: 'Cursor for pagination',
+                },
+                workflowId: {
+                  type: 'string',
+                  description: 'Filter executions by workflow ID',
+                },
+              },
+            },
+          },
+          {
+            name: 'get_execution',
+            description: 'Get a specific n8n execution by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'The execution ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'delete_execution',
+            description: 'Delete an n8n execution',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'The execution ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'webhook_urls',
+            description: 'Get webhook URLs for a webhook node in a workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                nodeId: {
+                  type: 'string',
+                  description: 'The webhook node ID',
+                },
+              },
+              required: ['workflowId', 'nodeId'],
+            },
+          },
+          {
+            name: 'run_once',
+            description: 'Execute a workflow manually once and return execution details',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                input: {
+                  type: 'object',
+                  description: 'Optional input data for the workflow execution',
+                },
+              },
+              required: ['workflowId'],
+            },
+          },
+          {
+            name: 'list_tags',
+            description: 'List all tags with optional pagination',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of tags to return',
+                },
+                cursor: {
+                  type: 'string',
+                  description: 'Pagination cursor for next page',
+                },
+              },
+            },
+          },
+          {
+            name: 'get_tag',
+            description: 'Get a specific tag by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The tag ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'create_tag',
+            description: 'Create a new tag',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'The tag name',
+                },
+                color: {
+                  type: 'string',
+                  description: 'Optional hex color code for the tag',
+                },
+              },
+              required: ['name'],
+            },
+          },
+          {
+            name: 'update_tag',
+            description: 'Update an existing tag',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The tag ID',
+                },
+                name: {
+                  type: 'string',
+                  description: 'The tag name',
+                },
+                color: {
+                  type: 'string',
+                  description: 'Optional hex color code for the tag',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'delete_tag',
+            description: 'Delete a tag by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The tag ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
         ],
       };
     });
@@ -222,7 +479,7 @@ export class N8nMcpServer {
             return await this.handleCreateWorkflow(request.params.arguments as Omit<N8nWorkflow, 'id'>);
 
           case 'update_workflow':
-            return await this.handleUpdateWorkflow(request.params.arguments as { id: number } & Partial<N8nWorkflow>);
+            return await this.handleUpdateWorkflow(request.params.arguments as { id: number; ifMatch?: string } & Partial<N8nWorkflow>);
 
           case 'delete_workflow':
             return await this.handleDeleteWorkflow(request.params.arguments as { id: number });
@@ -235,6 +492,60 @@ export class N8nMcpServer {
 
           case 'get_credential_schema':
             return await this.handleGetCredentialSchema(request.params.arguments as { credentialTypeName: string });
+
+          case 'list_workflow_tags':
+            return await this.handleListWorkflowTags(request.params.arguments as { workflowId: number });
+
+          case 'set_workflow_tags':
+            return await this.handleSetWorkflowTags(request.params.arguments as { workflowId: number; tagIds: (string | number)[] });
+
+          case 'transfer_workflow':
+            return await this.handleTransferWorkflow(request.params.arguments as unknown as { id: number } & TransferRequest);
+
+          case 'transfer_credential':
+            return await this.handleTransferCredential(request.params.arguments as unknown as { id: number } & TransferRequest);
+
+          case 'list_variables':
+            return await this.handleListVariables();
+
+          case 'create_variable':
+            return await this.handleCreateVariable(request.params.arguments as { key: string; value: string });
+
+          case 'update_variable':
+            return await this.handleUpdateVariable(request.params.arguments as { id: string; value: string });
+
+          case 'delete_variable':
+            return await this.handleDeleteVariable(request.params.arguments as { id: string });
+
+          case 'list_executions':
+            return await this.handleListExecutions(request.params.arguments as { limit?: number; cursor?: string; workflowId?: string });
+
+          case 'get_execution':
+            return await this.handleGetExecution(request.params.arguments as { id: string });
+
+          case 'delete_execution':
+            return await this.handleDeleteExecution(request.params.arguments as { id: string });
+
+          case 'webhook_urls':
+            return await this.handleWebhookUrls(request.params.arguments as { workflowId: number; nodeId: string });
+
+          case 'run_once':
+            return await this.handleRunOnce(request.params.arguments as { workflowId: number; input?: any });
+
+          case 'list_tags':
+            return await this.handleListTags(request.params.arguments as { limit?: number; cursor?: string });
+
+          case 'get_tag':
+            return await this.handleGetTag(request.params.arguments as { id: number });
+
+          case 'create_tag':
+            return await this.handleCreateTag(request.params.arguments as { name: string; color?: string });
+
+          case 'update_tag':
+            return await this.handleUpdateTag(request.params.arguments as { id: number; name?: string; color?: string });
+
+          case 'delete_tag':
+            return await this.handleDeleteTag(request.params.arguments as { id: number });
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -290,9 +601,9 @@ export class N8nMcpServer {
     };
   }
 
-  private async handleUpdateWorkflow(args: { id: number } & Partial<N8nWorkflow>) {
-    const { id, ...updateData } = args;
-    const workflow = await this.n8nClient.updateWorkflow(id, updateData);
+  private async handleUpdateWorkflow(args: { id: number; ifMatch?: string } & Partial<N8nWorkflow>) {
+    const { id, ifMatch, ...updateData } = args;
+    const workflow = await this.n8nClient.updateWorkflow(id, updateData, ifMatch);
     return {
       content: [
         {
@@ -346,6 +657,225 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: JSON.stringify(schema, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleListWorkflowTags(args: { workflowId: number }) {
+    const tags = await this.n8nClient.listWorkflowTags(args.workflowId);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tags, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleSetWorkflowTags(args: { workflowId: number; tagIds: (string | number)[] }) {
+    const tags = await this.n8nClient.setWorkflowTags(args.workflowId, args.tagIds);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Workflow tags updated successfully:\n${JSON.stringify(tags, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleTransferWorkflow(args: { id: number } & TransferRequest) {
+    const { id, ...transferData } = args;
+    const result = await this.n8nClient.transferWorkflow(id, transferData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Workflow transferred successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleTransferCredential(args: { id: number } & TransferRequest) {
+    const { id, ...transferData } = args;
+    const result = await this.n8nClient.transferCredential(id, transferData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Credential transferred successfully:\n${JSON.stringify(result, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleListVariables() {
+    const response = await this.n8nClient.listVariables();
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleCreateVariable(args: { key: string; value: string }) {
+    const variable = await this.n8nClient.createVariable(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Variable created successfully:\n${JSON.stringify(variable, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleUpdateVariable(args: { id: string; value: string }) {
+    const variable = await this.n8nClient.updateVariable(args.id, { value: args.value });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Variable updated successfully:\n${JSON.stringify(variable, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleDeleteVariable(args: { id: string }) {
+    const result = await this.n8nClient.deleteVariable(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Variable ${args.id} deleted successfully`,
+        },
+      ],
+    };
+  }
+
+  private async handleListExecutions(args: { limit?: number; cursor?: string; workflowId?: string }) {
+    const executions = await this.n8nClient.listExecutions(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(executions, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetExecution(args: { id: string }) {
+    const execution = await this.n8nClient.getExecution(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(execution, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleDeleteExecution(args: { id: string }) {
+    const result = await this.n8nClient.deleteExecution(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Execution ${args.id} deleted successfully`,
+        },
+      ],
+    };
+  }
+
+  private async handleWebhookUrls(args: { workflowId: number; nodeId: string }) {
+    const urls = await this.n8nClient.getWebhookUrls(args.workflowId, args.nodeId);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(urls, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleRunOnce(args: { workflowId: number; input?: any }) {
+    const execution = await this.n8nClient.runOnce(args.workflowId, args.input);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(execution, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleListTags(args: { limit?: number; cursor?: string }) {
+    const tags = await this.n8nClient.listTags(args.limit, args.cursor);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tags, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetTag(args: { id: number }) {
+    const tag = await this.n8nClient.getTag(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tag, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleCreateTag(args: { name: string; color?: string }) {
+    const tag = await this.n8nClient.createTag(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tag, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleUpdateTag(args: { id: number; name?: string; color?: string }) {
+    const { id, ...updateData } = args;
+    const tag = await this.n8nClient.updateTag(id, updateData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tag, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleDeleteTag(args: { id: number }) {
+    await this.n8nClient.deleteTag(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, message: `Tag ${args.id} deleted successfully` }, null, 2),
         },
       ],
     };
