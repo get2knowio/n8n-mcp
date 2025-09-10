@@ -328,8 +328,6 @@ export class N8nMcpServer {
                 id: {
                   type: 'string',
                   description: 'The execution ID',
-                  type: 'string',
-                  description: 'The new owner ID (optional)',
                 },
               },
               required: ['id'],

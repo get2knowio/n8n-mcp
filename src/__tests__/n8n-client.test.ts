@@ -82,7 +82,6 @@ describe('N8nClient', () => {
       patch: jest.fn(),
       put: jest.fn(),
       delete: jest.fn(),
-      put: jest.fn(),
     };
 
     mockedAxios.create.mockReturnValue(mockApi);
