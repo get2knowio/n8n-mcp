@@ -48,7 +48,7 @@ export class N8nMcpServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
-          { name: 'list_workflows', description: 'List all n8n workflows', inputSchema: { type: 'object', properties: {} } },
+          { name: 'list_workflows', description: 'List all n8n workflows', inputSchema: { type: 'object', properties: { limit: { type: 'number' }, cursor: { type: 'string' } } } },
           { name: 'get_workflow', description: 'Get a specific n8n workflow by ID', inputSchema: { type: 'object', properties: { id: { type: 'number', description: 'The workflow ID' } }, required: ['id'] } },
           { name: 'create_workflow', description: 'Create a new n8n workflow', inputSchema: { type: 'object', properties: { name: { type: 'string' }, nodes: { type: 'array', items: { type: 'object' } }, connections: { type: 'object' }, active: { type: 'boolean', default: false }, tags: { type: 'array', items: { type: 'string' } } }, required: ['name', 'nodes', 'connections'] } },
           { name: 'update_workflow', description: 'Update an existing n8n workflow', inputSchema: { type: 'object', properties: { id: { type: 'number' }, name: { type: 'string' }, nodes: { type: 'array', items: { type: 'object' } }, connections: { type: 'object' }, active: { type: 'boolean' }, tags: { type: 'array', items: { type: 'string' } }, ifMatch: { type: 'string', description: 'Optional If-Match header value for optimistic concurrency control' } }, required: ['id'] } },
@@ -58,7 +58,7 @@ export class N8nMcpServer {
 
           { name: 'get_credential_schema', description: 'Get JSON schema for a credential type', inputSchema: { type: 'object', properties: { credentialTypeName: { type: 'string', description: 'The name of the credential type' } }, required: ['credentialTypeName'] } },
 
-          { name: 'list_variables', description: 'List all variables with pagination support', inputSchema: { type: 'object', properties: {} } },
+          { name: 'list_variables', description: 'List all variables with pagination support', inputSchema: { type: 'object', properties: { limit: { type: 'number' }, cursor: { type: 'string' } } } },
           { name: 'create_variable', description: 'Create a new variable (requires unique key)', inputSchema: { type: 'object', properties: { key: { type: 'string' }, value: { type: 'string' } }, required: ['key', 'value'] } },
           { name: 'update_variable', description: 'Update an existing variable value', inputSchema: { type: 'object', properties: { id: { type: 'string' }, value: { type: 'string' } }, required: ['id', 'value'] } },
           { name: 'delete_variable', description: 'Delete a variable by ID', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
@@ -93,7 +93,7 @@ export class N8nMcpServer {
 
         switch (request.params.name) {
           case 'list_workflows':
-            return await this.handleListWorkflows();
+            return await this.handleListWorkflows(request.params.arguments as { limit?: number; cursor?: string });
           case 'get_workflow':
             return await this.handleGetWorkflow(request.params.arguments as { id: number });
           case 'create_workflow':
@@ -121,7 +121,7 @@ export class N8nMcpServer {
             return await this.handleTransferCredential(request.params.arguments as unknown as { id: number } & TransferRequest);
 
           case 'list_variables':
-            return await this.handleListVariables();
+            return await this.handleListVariables(request.params.arguments as { limit?: number; cursor?: string });
           case 'create_variable':
             return await this.handleCreateVariable(request.params.arguments as { key: string; value: string });
           case 'update_variable':
@@ -166,8 +166,8 @@ export class N8nMcpServer {
     });
   }
 
-  private async handleListWorkflows() {
-    const workflows = await this.n8nClient.listWorkflows();
+  private async handleListWorkflows(args?: { limit?: number; cursor?: string }) {
+    const workflows = await this.n8nClient.listWorkflows(args?.limit, args?.cursor);
     return { content: [{ type: 'text', text: JSON.stringify(workflows, null, 2) }] };
   }
 
@@ -229,8 +229,8 @@ export class N8nMcpServer {
     return { content: [{ type: 'text', text: `Credential transferred successfully:\n${JSON.stringify(result, null, 2)}` }] };
   }
 
-  private async handleListVariables() {
-    const response = await this.n8nClient.listVariables();
+  private async handleListVariables(args?: { limit?: number; cursor?: string }) {
+    const response = await this.n8nClient.listVariables(args?.limit, args?.cursor);
     return { content: [{ type: 'text', text: JSON.stringify(response, null, 2) }] };
   }
 
