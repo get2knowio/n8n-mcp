@@ -198,6 +198,78 @@ export class N8nMcpServer {
             },
           },
           {
+            name: 'get_credential_schema',
+            description: 'Get JSON schema for a credential type',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                credentialTypeName: {
+                  type: 'string',
+                  description: 'The name of the credential type',
+                },
+              },
+              required: ['credentialTypeName'],
+            },
+          },
+          {
+            name: 'list_variables',
+            description: 'List all variables with pagination support',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'create_variable',
+            description: 'Create a new variable (requires unique key)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                key: {
+                  type: 'string',
+                  description: 'Variable key (must be unique)'
+                },
+                value: {
+                  type: 'string',
+                  description: 'Variable value'
+                }
+              },
+              required: ['key', 'value']
+            },
+          },
+          {
+            name: 'update_variable',
+            description: 'Update an existing variable value',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Variable ID'
+                },
+                value: {
+                  type: 'string',
+                  description: 'New variable value'
+                }
+              },
+              required: ['id', 'value']
+            },
+          },
+          {
+            name: 'delete_variable',
+            description: 'Delete a variable by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Variable ID'
+                }
+              },
+              required: ['id']
+            },
+          },
+          {
             name: 'list_workflow_tags',
             description: 'List tags for a specific n8n workflow',
             inputSchema: {
@@ -271,121 +343,6 @@ export class N8nMcpServer {
                 newOwnerId: {
                   type: 'string',
                   description: 'The new owner ID (optional)',
-                },
-              },
-              required: ['id'],
-            },
-          },
-          {
-            name: 'transfer_credential',
-            description: 'Transfer an n8n credential to a different project or owner',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                id: {
-                  type: 'number',
-                  description: 'The credential ID',
-                },
-                projectId: {
-                  type: 'string',
-                  description: 'The target project ID (optional)',
-                },
-                newOwnerId: {
-                  type: 'string',
-                  description: 'The new owner ID (optional)',
-                },
-              },
-              required: ['id'],
-            },
-          },
-          {
-            name: 'list_executions',
-            description: 'List n8n workflow executions',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                limit: {
-                  type: 'number',
-                  description: 'Maximum number of executions to return',
-                },
-                cursor: {
-                  type: 'string',
-                  description: 'Cursor for pagination',
-                },
-                workflowId: {
-                  type: 'string',
-                  description: 'Filter executions by workflow ID',
-                },
-              },
-            },
-          },
-          {
-            name: 'get_execution',
-            description: 'Get a specific n8n execution by ID',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                id: {
-                  type: 'string',
-                  description: 'The execution ID',
-                },
-              },
-              required: ['id'],
-            },
-          },
-          {
-            name: 'list_variables',
-            description: 'List all n8n variables',
-            inputSchema: {
-              type: 'object',
-              properties: {},
-            },
-          },
-          {
-            name: 'create_variable',
-            description: 'Create a new n8n variable',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                key: {
-                  type: 'string',
-                  description: 'The variable key (must be unique)',
-                },
-                value: {
-                  type: 'string',
-                  description: 'The variable value',
-                },
-              },
-              required: ['key', 'value'],
-            },
-          },
-          {
-            name: 'update_variable',
-            description: 'Update an existing n8n variable',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                id: {
-                  type: 'string',
-                  description: 'The variable ID',
-                },
-                value: {
-                  type: 'string',
-                  description: 'The new variable value',
-                },
-              },
-              required: ['id', 'value'],
-            },
-          },
-          {
-            name: 'delete_variable',
-            description: 'Delete an n8n variable',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                id: {
-                  type: 'string',
-                  description: 'The variable ID',
                 },
               },
               required: ['id'],
@@ -591,6 +548,9 @@ export class N8nMcpServer {
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
 
+          case 'get_credential_schema':
+            return await this.handleGetCredentialSchema(request.params.arguments as { credentialTypeName: string });
+
           case 'list_workflow_tags':
             return await this.handleListWorkflowTags(request.params.arguments as { workflowId: number });
 
@@ -743,6 +703,18 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleGetCredentialSchema(args: { credentialTypeName: string }) {
+    const schema = await this.n8nClient.getCredentialSchema(args.credentialTypeName);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(schema, null, 2),
         },
       ],
     };

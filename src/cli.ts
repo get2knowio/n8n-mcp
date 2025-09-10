@@ -69,6 +69,66 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
   }
 }
 
+async function handleVariablesCommand(client: N8nClient, args: string[]) {
+  const subCommand = args[0];
+
+  if (!subCommand) {
+    console.error('Error: Variables subcommand required (list, create, update, delete)');
+    process.exit(1);
+  }
+
+  switch (subCommand) {
+    case 'list':
+      const variables = await client.listVariables();
+      console.log(JSON.stringify(variables, null, 2));
+      break;
+
+    case 'create':
+      const keyIndex = args.indexOf('--key');
+      const valueIndex = args.indexOf('--value');
+      
+      if (keyIndex === -1 || valueIndex === -1 || !args[keyIndex + 1] || !args[valueIndex + 1]) {
+        console.error('Error: Both --key and --value are required');
+        process.exit(1);
+      }
+      
+      const key = args[keyIndex + 1];
+      const value = args[valueIndex + 1];
+      const created = await client.createVariable({ key, value });
+      console.log(JSON.stringify(created, null, 2));
+      break;
+
+    case 'update':
+      const updateId = args[1];
+      const updateValueIndex = args.indexOf('--value');
+      
+      if (!updateId || updateValueIndex === -1 || !args[updateValueIndex + 1]) {
+        console.error('Error: Variable ID and --value are required');
+        process.exit(1);
+      }
+      
+      const newValue = args[updateValueIndex + 1];
+      const updated = await client.updateVariable(updateId, { value: newValue });
+      console.log(JSON.stringify(updated, null, 2));
+      break;
+
+    case 'delete':
+      const deleteId = args[1];
+      if (!deleteId) {
+        console.error('Error: Variable ID required');
+        process.exit(1);
+      }
+      
+      const result = await client.deleteVariable(deleteId);
+      console.log(JSON.stringify(result, null, 2));
+      break;
+
+    default:
+      console.error(`Unknown variables command: ${subCommand}`);
+      process.exit(1);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -84,6 +144,7 @@ Commands:
   delete <id>               Delete workflow by ID
   activate <id>             Activate workflow
   deactivate <id>           Deactivate workflow
+  get-credential-schema <type>  Get credential schema by type name
   workflows tags <id>       List tags for a workflow
   workflows set-tags <id> --tags <comma-separated>  Set tags for a workflow
   executions list [options]              List executions
@@ -185,6 +246,16 @@ Environment variables:
         }
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
+        break;
+
+      case 'get-credential-schema':
+        const credentialType = args[1];
+        if (!credentialType) {
+          console.error('Error: Credential type name required');
+          process.exit(1);
+        }
+        const schema = await client.getCredentialSchema(credentialType);
+        console.log(JSON.stringify(schema, null, 2));
         break;
 
       case 'workflows':
@@ -318,7 +389,6 @@ Environment variables:
         const execution = await client.runOnce(runWorkflowId, inputData);
         console.log('Execution started:', JSON.stringify(execution, null, 2));
         break;
-        break;
 
       default:
         console.error(`Unknown command: ${command}`);
@@ -327,66 +397,6 @@ Environment variables:
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     process.exit(1);
-  }
-}
-
-async function handleVariablesCommand(client: N8nClient, args: string[]) {
-  const subCommand = args[0];
-
-  if (!subCommand) {
-    console.error('Error: Variables subcommand required (list, create, update, delete)');
-    process.exit(1);
-  }
-
-  switch (subCommand) {
-    case 'list':
-      const variables = await client.listVariables();
-      console.log(JSON.stringify(variables, null, 2));
-      break;
-
-    case 'create':
-      const keyIndex = args.indexOf('--key');
-      const valueIndex = args.indexOf('--value');
-      
-      if (keyIndex === -1 || valueIndex === -1 || !args[keyIndex + 1] || !args[valueIndex + 1]) {
-        console.error('Error: Both --key and --value are required');
-        process.exit(1);
-      }
-      
-      const key = args[keyIndex + 1];
-      const value = args[valueIndex + 1];
-      const created = await client.createVariable({ key, value });
-      console.log(JSON.stringify(created, null, 2));
-      break;
-
-    case 'update':
-      const updateId = args[1];
-      const updateValueIndex = args.indexOf('--value');
-      
-      if (!updateId || updateValueIndex === -1 || !args[updateValueIndex + 1]) {
-        console.error('Error: Variable ID and --value are required');
-        process.exit(1);
-      }
-      
-      const newValue = args[updateValueIndex + 1];
-      const updated = await client.updateVariable(updateId, { value: newValue });
-      console.log(JSON.stringify(updated, null, 2));
-      break;
-
-    case 'delete':
-      const deleteId = args[1];
-      if (!deleteId) {
-        console.error('Error: Variable ID required');
-        process.exit(1);
-      }
-      
-      const result = await client.deleteVariable(deleteId);
-      console.log(JSON.stringify(result, null, 2));
-      break;
-
-    default:
-      console.error(`Unknown variables command: ${subCommand}`);
-      process.exit(1);
   }
 }
 

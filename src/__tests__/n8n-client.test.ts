@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls } from '../types';
+import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls, N8nCredentialSchema } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -33,6 +33,25 @@ describe('N8nClient', () => {
     connections: {},
     active: false,
     tags: ['test']
+  };
+
+  const mockCredentialSchema: N8nCredentialSchema = {
+    type: 'httpHeaderAuth',
+    displayName: 'Header Auth',
+    name: 'httpHeaderAuth',
+    properties: {
+      name: {
+        type: 'string',
+        description: 'Header name'
+      },
+      value: {
+        type: 'string',
+        description: 'Header value'
+      }
+    },
+    required: ['name', 'value'],
+    description: 'Authentication via HTTP header',
+    category: 'generic'
   };
 
   const mockVariable: N8nVariable = {
@@ -314,6 +333,36 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('getCredentialSchema', () => {
+    it('should return credential schema by type name', async () => {
+      const mockResponse = {
+        data: {
+          data: mockCredentialSchema
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.getCredentialSchema('httpHeaderAuth');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/credential-types/httpHeaderAuth');
+      expect(result).toEqual(mockCredentialSchema);
+    });
+
+    it('should handle credential type not found', async () => {
+      const error = new Error('Credential type not found');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.getCredentialSchema('invalidType')).rejects.toThrow('Credential type not found');
+    });
+
+    it('should handle authentication errors', async () => {
+      const error = new Error('Unauthorized');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.getCredentialSchema('httpHeaderAuth')).rejects.toThrow('Unauthorized');
     });
   });
 

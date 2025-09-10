@@ -93,6 +93,7 @@ export interface N8nVariablesListResponse {
   data: N8nVariable[];
   nextCursor?: string;
 }
+
 export interface N8nConfig {
   baseUrl: string;
   apiKey?: string;
@@ -149,4 +150,16 @@ export interface N8nWebhookUrls {
 export interface N8nExecutionResponse {
   executionId: string;
   status: string;
+}
+
+export interface N8nCredentialSchema {
+  type: string;
+  displayName: string;
+  name: string;
+  properties: Record<string, any>;
+  required?: string[];
+  description?: string;
+  icon?: string;
+  iconUrl?: string;
+  category?: string;
 }

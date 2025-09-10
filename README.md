@@ -16,6 +16,7 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Update Workflow**: Modify existing workflows
 - **Delete Workflow**: Remove workflows
 - **Activate/Deactivate**: Control workflow execution state
+- **Get Credential Schema**: Fetch JSON schema for credential types to validate or drive UIs
 - **Transfer Workflows**: Move workflows across projects or owners
 - **Transfer Credentials**: Move credentials across projects or owners
 - **List Executions**: Get workflow executions with pagination support
@@ -99,6 +100,9 @@ npm run cli delete 1
 npm run cli activate 1
 npm run cli deactivate 1
 
+# Get credential schema
+npm run cli get-credential-schema httpHeaderAuth
+
 # Transfer workflows between projects/owners (Enterprise feature)
 # Note: Transfer operations require appropriate permissions and enterprise n8n setup
 npm run cli transfer_workflow 1 --project-id "project-123"
@@ -156,28 +160,29 @@ npm run cli tags delete 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
-8. **list_workflow_tags** - List tags for a specific workflow
-9. **set_workflow_tags** - Set tags for a specific workflow
-10. **transfer_workflow** - Transfer a workflow to a different project or owner
-11. **transfer_credential** - Transfer a credential to a different project or owner
-12. **list_executions** - List workflow executions with pagination
-13. **get_execution** - Get execution by ID
-14. **delete_execution** - Delete an execution
-15. **webhook_urls** - Get webhook URLs for a webhook node
-16. **run_once** - Execute a workflow manually once
+8. **get_credential_schema** - Get JSON schema for a credential type
+9. **list_workflow_tags** - List tags for a specific workflow
+10. **set_workflow_tags** - Set tags for a specific workflow
+11. **transfer_workflow** - Transfer a workflow to a different project or owner
+12. **transfer_credential** - Transfer a credential to a different project or owner
+13. **list_executions** - List workflow executions with pagination
+14. **get_execution** - Get execution by ID
+15. **delete_execution** - Delete an execution
+16. **webhook_urls** - Get webhook URLs for a webhook node
+17. **run_once** - Execute a workflow manually once
 
 #### Variables Tools
-17. **list_variables** - List all variables with pagination support
-18. **create_variable** - Create a new variable (requires unique key)
-19. **update_variable** - Update an existing variable value
-20. **delete_variable** - Delete a variable
+18. **list_variables** - List all variables with pagination support
+19. **create_variable** - Create a new variable (requires unique key)
+20. **update_variable** - Update an existing variable value
+21. **delete_variable** - Delete a variable
 
 #### Tag Tools
-21. **list_tags** - List all tags with optional pagination
-22. **get_tag** - Get tag by ID
-23. **create_tag** - Create a new tag
-24. **update_tag** - Update existing tag
-25. **delete_tag** - Delete a tag
+22. **list_tags** - List all tags with optional pagination
+23. **get_tag** - Get tag by ID
+24. **create_tag** - Create a new tag
+25. **update_tag** - Update existing tag
+26. **delete_tag** - Delete a tag
 
 #### Optimistic Concurrency for Updates
 
@@ -262,9 +267,7 @@ The transfer tools allow moving workflows and credentials across projects and ow
 - Valid target project IDs and user IDs
 
 Permission errors will be returned with clear error messages if the operation is not allowed.
-```
 
-=======
 ## Tag Management
 
 Tags are used to organize and group workflows in n8n. The MCP server provides comprehensive tag management capabilities:
