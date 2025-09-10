@@ -35,6 +35,12 @@ describe('N8nClient', () => {
     tags: ['test']
   };
 
+  const mockVariable: N8nVariable = {
+    id: 'var-123',
+    key: 'test-key',
+    value: 'test-value'
+  };
+
   const mockTags: N8nTag[] = [
     {
       id: 'tag1',
@@ -47,12 +53,6 @@ describe('N8nClient', () => {
       color: '#00ff00'
     }
   ];
-
-  const mockVariable: N8nVariable = {
-    id: 'var-123',
-    key: 'test-key',
-    value: 'test-value'
-  };
 
   const mockExecution: N8nExecution = {
     id: 'exec_123',
@@ -82,7 +82,6 @@ describe('N8nClient', () => {
       patch: jest.fn(),
       put: jest.fn(),
       delete: jest.fn(),
-      put: jest.fn(),
     };
 
     mockedAxios.create.mockReturnValue(mockApi);
@@ -318,30 +317,16 @@ describe('N8nClient', () => {
     });
   });
 
-<<<<<<< HEAD
-  describe('listWorkflowTags', () => {
-    it('should return list of workflow tags', async () => {
-      const mockResponse = {
-        data: {
-          data: mockTags
-=======
   describe('listVariables', () => {
     it('should return list of variables', async () => {
       const mockResponse = {
         data: {
           data: [mockVariable],
           nextCursor: undefined
->>>>>>> main
         }
       };
       mockApi.get.mockResolvedValue(mockResponse);
 
-<<<<<<< HEAD
-      const result = await client.listWorkflowTags(1);
-
-      expect(mockApi.get).toHaveBeenCalledWith('/workflows/1/tags');
-      expect(result).toEqual(mockTags);
-=======
       const result = await client.listVariables();
 
       expect(mockApi.get).toHaveBeenCalledWith('/variables');
@@ -363,25 +348,12 @@ describe('N8nClient', () => {
       const result = await client.listVariables();
 
       expect(result.nextCursor).toBe('next-cursor-123');
->>>>>>> main
     });
 
     it('should handle API errors', async () => {
       const error = new Error('API Error');
       mockApi.get.mockRejectedValue(error);
 
-<<<<<<< HEAD
-      await expect(client.listWorkflowTags(1)).rejects.toThrow('API Error');
-    });
-  });
-
-  describe('setWorkflowTags', () => {
-    it('should set workflow tags', async () => {
-      const tagIds = ['tag1', 'tag2'];
-      const mockResponse = {
-        data: {
-          data: mockTags
-=======
       await expect(client.listVariables()).rejects.toThrow('API Error');
     });
   });
@@ -461,25 +433,10 @@ describe('N8nClient', () => {
       const mockResponse = {
         data: {
           data: updatedVariable
->>>>>>> main
         }
       };
       mockApi.put.mockResolvedValue(mockResponse);
 
-<<<<<<< HEAD
-      const result = await client.setWorkflowTags(1, tagIds);
-
-      expect(mockApi.put).toHaveBeenCalledWith('/workflows/1/tags', { tagIds });
-      expect(result).toEqual(mockTags);
-    });
-
-    it('should handle set tags errors', async () => {
-      const tagIds = ['tag1', 'tag2'];
-      const error = new Error('Set tags failed');
-      mockApi.put.mockRejectedValue(error);
-
-      await expect(client.setWorkflowTags(1, tagIds)).rejects.toThrow('Set tags failed');
-=======
       const result = await client.updateVariable('var-123', updateData);
 
       expect(mockApi.put).toHaveBeenCalledWith('/variables/var-123', updateData);
@@ -841,7 +798,41 @@ describe('N8nClient', () => {
 
         expect(mockApi.delete).toHaveBeenCalledWith('/tags/1');
       });
->>>>>>> main
+    });
+  });
+
+  describe('Workflow Tags', () => {
+    describe('listWorkflowTags', () => {
+      it('should return list of workflow tags', async () => {
+        const mockResponse = {
+          data: {
+            data: mockTags
+          }
+        };
+        mockApi.get.mockResolvedValue(mockResponse);
+
+        const result = await client.listWorkflowTags(1);
+
+        expect(mockApi.get).toHaveBeenCalledWith('/workflows/1/tags');
+        expect(result).toEqual(mockTags);
+      });
+    });
+
+    describe('setWorkflowTags', () => {
+      it('should set workflow tags', async () => {
+        const tagIds = ['tag1', 'tag2'];
+        const mockResponse = {
+          data: {
+            data: mockTags
+          }
+        };
+        mockApi.put.mockResolvedValue(mockResponse);
+
+        const result = await client.setWorkflowTags(1, tagIds);
+
+        expect(mockApi.put).toHaveBeenCalledWith('/workflows/1/tags', { tagIds });
+        expect(result).toEqual(mockTags);
+      });
     });
   });
 });
