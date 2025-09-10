@@ -97,6 +97,12 @@ npm run cli delete 1
 npm run cli activate 1
 npm run cli deactivate 1
 
+# List workflow tags
+npm run cli workflows tags 1
+
+# Set workflow tags
+npm run cli workflows set-tags 1 --tags tag1,tag2,tag3
+
 # Variables management
 npm run cli variables list
 npm run cli variables create --key mykey --value myvalue
@@ -143,24 +149,26 @@ npm run cli tags delete 1
 5. **delete_workflow** - Delete a workflow
 6. **activate_workflow** - Activate a workflow
 7. **deactivate_workflow** - Deactivate a workflow
-8. **list_executions** - List workflow executions with pagination
-9. **get_execution** - Get execution by ID
-10. **delete_execution** - Delete an execution
-11. **webhook_urls** - Get webhook URLs for a webhook node
-12. **run_once** - Execute a workflow manually once
+8. **list_workflow_tags** - List tags for a specific workflow
+9. **set_workflow_tags** - Set tags for a specific workflow
+10. **list_executions** - List workflow executions with pagination
+11. **get_execution** - Get execution by ID
+12. **delete_execution** - Delete an execution
+13. **webhook_urls** - Get webhook URLs for a webhook node
+14. **run_once** - Execute a workflow manually once
 
 #### Variables Tools
-13. **list_variables** - List all variables with pagination support
-14. **create_variable** - Create a new variable (requires unique key)
-15. **update_variable** - Update an existing variable value
-16. **delete_variable** - Delete a variable
+15. **list_variables** - List all variables with pagination support
+16. **create_variable** - Create a new variable (requires unique key)
+17. **update_variable** - Update an existing variable value
+18. **delete_variable** - Delete a variable
 
 #### Tag Tools
-17. **list_tags** - List all tags with optional pagination
-18. **get_tag** - Get tag by ID
-19. **create_tag** - Create a new tag
-20. **update_tag** - Update existing tag
-21. **delete_tag** - Delete a tag
+19. **list_tags** - List all tags with optional pagination
+20. **get_tag** - Get tag by ID
+21. **create_tag** - Create a new tag
+22. **update_tag** - Update existing tag
+23. **delete_tag** - Delete a tag
 
 #### Optimistic Concurrency for Updates
 

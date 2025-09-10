@@ -71,6 +71,17 @@ export class N8nClient {
     return response.data.data;
   }
 
+  // Workflow Tags API methods
+  async listWorkflowTags(workflowId: number): Promise<N8nTag[]> {
+    const response = await this.api.get<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`);
+    return response.data.data;
+  }
+
+  async setWorkflowTags(workflowId: number, tagIds: (string | number)[]): Promise<N8nTag[]> {
+    const response = await this.api.put<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`, { tagIds });
+    return response.data.data;
+  }
+
   // Tags API methods
   async listTags(limit?: number, cursor?: string): Promise<N8nTagsListResponse> {
     const params = new URLSearchParams();

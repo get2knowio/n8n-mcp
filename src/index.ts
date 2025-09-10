@@ -198,6 +198,41 @@ export class N8nMcpServer {
             },
           },
           {
+            name: 'list_workflow_tags',
+            description: 'List tags for a specific n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+              },
+              required: ['workflowId'],
+            },
+          },
+          {
+            name: 'set_workflow_tags',
+            description: 'Set tags for a specific n8n workflow',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflowId: {
+                  type: 'number',
+                  description: 'The workflow ID',
+                },
+                tagIds: {
+                  type: 'array',
+                  description: 'Array of tag IDs to set on the workflow',
+                  items: {
+                    type: ['string', 'number'],
+                  },
+                },
+              },
+              required: ['workflowId', 'tagIds'],
+            },
+          },
+          {
             name: 'list_variables',
             description: 'List all n8n variables',
             inputSchema: {
@@ -455,6 +490,12 @@ export class N8nMcpServer {
           case 'deactivate_workflow':
             return await this.handleDeactivateWorkflow(request.params.arguments as { id: number });
 
+          case 'list_workflow_tags':
+            return await this.handleListWorkflowTags(request.params.arguments as { workflowId: number });
+
+          case 'set_workflow_tags':
+            return await this.handleSetWorkflowTags(request.params.arguments as { workflowId: number; tagIds: (string | number)[] });
+
           case 'list_variables':
             return await this.handleListVariables();
 
@@ -595,6 +636,30 @@ export class N8nMcpServer {
         {
           type: 'text',
           text: `Workflow deactivated successfully:\n${JSON.stringify(workflow, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  private async handleListWorkflowTags(args: { workflowId: number }) {
+    const tags = await this.n8nClient.listWorkflowTags(args.workflowId);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tags, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleSetWorkflowTags(args: { workflowId: number; tagIds: (string | number)[] }) {
+    const tags = await this.n8nClient.setWorkflowTags(args.workflowId, args.tagIds);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Workflow tags updated successfully:\n${JSON.stringify(tags, null, 2)}`,
         },
       ],
     };

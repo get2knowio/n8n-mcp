@@ -41,6 +41,19 @@ describe('N8nClient', () => {
     value: 'test-value'
   };
 
+  const mockTags: N8nTag[] = [
+    {
+      id: 'tag1',
+      name: 'Production',
+      color: '#ff0000'
+    },
+    {
+      id: 'tag2', 
+      name: 'Testing',
+      color: '#00ff00'
+    }
+  ];
+
   const mockExecution: N8nExecution = {
     id: 'exec_123',
     finished: true,
@@ -784,6 +797,41 @@ describe('N8nClient', () => {
         await client.deleteTag(1);
 
         expect(mockApi.delete).toHaveBeenCalledWith('/tags/1');
+      });
+    });
+  });
+
+  describe('Workflow Tags', () => {
+    describe('listWorkflowTags', () => {
+      it('should return list of workflow tags', async () => {
+        const mockResponse = {
+          data: {
+            data: mockTags
+          }
+        };
+        mockApi.get.mockResolvedValue(mockResponse);
+
+        const result = await client.listWorkflowTags(1);
+
+        expect(mockApi.get).toHaveBeenCalledWith('/workflows/1/tags');
+        expect(result).toEqual(mockTags);
+      });
+    });
+
+    describe('setWorkflowTags', () => {
+      it('should set workflow tags', async () => {
+        const tagIds = ['tag1', 'tag2'];
+        const mockResponse = {
+          data: {
+            data: mockTags
+          }
+        };
+        mockApi.put.mockResolvedValue(mockResponse);
+
+        const result = await client.setWorkflowTags(1, tagIds);
+
+        expect(mockApi.put).toHaveBeenCalledWith('/workflows/1/tags', { tagIds });
+        expect(result).toEqual(mockTags);
       });
     });
   });

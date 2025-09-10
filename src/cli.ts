@@ -78,12 +78,14 @@ async function main() {
 Usage: node dist/cli.js <command> [options]
 
 Commands:
-  list                    List all workflows
-  get <id>               Get workflow by ID
-  create <file.json>     Create workflow from JSON file
-  delete <id>            Delete workflow by ID
-  activate <id>          Activate workflow
-  deactivate <id>        Deactivate workflow
+  list                       List all workflows
+  get <id>                  Get workflow by ID
+  create <file.json>        Create workflow from JSON file
+  delete <id>               Delete workflow by ID
+  activate <id>             Activate workflow
+  deactivate <id>           Deactivate workflow
+  workflows tags <id>       List tags for a workflow
+  workflows set-tags <id> --tags <comma-separated>  Set tags for a workflow
   executions list [options]              List executions
   executions get <id>                    Get execution by ID
   executions delete <id>                 Delete execution by ID
@@ -109,10 +111,10 @@ Tag Commands:
   tags delete <id>              Delete tag by ID
 
 Environment variables:
-  N8N_BASE_URL           n8n instance URL (default: http://localhost:5678)
-  N8N_API_KEY           API key for authentication
-  N8N_USERNAME          Username for basic auth
-  N8N_PASSWORD          Password for basic auth
+  N8N_BASE_URL              n8n instance URL (default: http://localhost:5678)
+  N8N_API_KEY              API key for authentication
+  N8N_USERNAME             Username for basic auth
+  N8N_PASSWORD             Password for basic auth
 `);
     process.exit(1);
   }
@@ -183,6 +185,41 @@ Environment variables:
         }
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
+        break;
+
+      case 'workflows':
+        const subcommand = args[1];
+        if (subcommand === 'tags') {
+          const workflowId = parseInt(args[2]);
+          if (!workflowId) {
+            console.error('Error: Workflow ID required');
+            process.exit(1);
+          }
+          const tags = await client.listWorkflowTags(workflowId);
+          console.log(JSON.stringify(tags, null, 2));
+        } else if (subcommand === 'set-tags') {
+          const workflowId = parseInt(args[2]);
+          if (!workflowId) {
+            console.error('Error: Workflow ID required');
+            process.exit(1);
+          }
+          
+          // Find --tags argument
+          const tagsIndex = args.indexOf('--tags');
+          if (tagsIndex === -1 || tagsIndex === args.length - 1) {
+            console.error('Error: --tags argument required');
+            process.exit(1);
+          }
+          
+          const tagsArg = args[tagsIndex + 1];
+          const tagIds = tagsArg.split(',').map(tag => tag.trim());
+          
+          const tags = await client.setWorkflowTags(workflowId, tagIds);
+          console.log('Workflow tags updated:', JSON.stringify(tags, null, 2));
+        } else {
+          console.error(`Unknown workflows subcommand: ${subcommand}`);
+          process.exit(1);
+        }
         break;
 
       case 'tags':
@@ -280,6 +317,7 @@ Environment variables:
         
         const execution = await client.runOnce(runWorkflowId, inputData);
         console.log('Execution started:', JSON.stringify(execution, null, 2));
+        break;
         break;
 
       default:

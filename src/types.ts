@@ -51,7 +51,7 @@ export interface N8nWorkflowsListResponse {
 }
 
 export interface N8nTag {
-  id?: number;
+  id?: number | string;
   name: string;
   color?: string;
   createdAt?: string;
@@ -73,7 +73,6 @@ export interface N8nVariablesListResponse {
   data: N8nVariable[];
   nextCursor?: string;
 }
-
 export interface N8nConfig {
   baseUrl: string;
   apiKey?: string;
