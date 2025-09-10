@@ -3,6 +3,72 @@
 import { N8nClient } from './n8n-client.js';
 import { N8nConfig } from './types.js';
 
+async function handleTagCommands(client: N8nClient, command: string, args: string[]) {
+  switch (command) {
+    case 'list':
+      const limit = args[0] ? parseInt(args[0]) : undefined;
+      const cursor = args[1] || undefined;
+      const tags = await client.listTags(limit, cursor);
+      console.log(JSON.stringify(tags, null, 2));
+      break;
+
+    case 'get':
+      const getId = parseInt(args[0]);
+      if (!getId) {
+        console.error('Error: Tag ID required');
+        process.exit(1);
+      }
+      const tag = await client.getTag(getId);
+      console.log(JSON.stringify(tag, null, 2));
+      break;
+
+    case 'create':
+      const name = args[0];
+      if (!name) {
+        console.error('Error: Tag name required');
+        process.exit(1);
+      }
+      const color = args[1] || undefined;
+      const created = await client.createTag({ name, color });
+      console.log(JSON.stringify(created, null, 2));
+      break;
+
+    case 'update':
+      const updateId = parseInt(args[0]);
+      if (!updateId) {
+        console.error('Error: Tag ID required');
+        process.exit(1);
+      }
+      const updateData: any = {};
+      if (args[1]) updateData.name = args[1];
+      if (args[2]) updateData.color = args[2];
+      
+      if (Object.keys(updateData).length === 0) {
+        console.error('Error: At least one of name or color must be provided');
+        process.exit(1);
+      }
+      
+      const updated = await client.updateTag(updateId, updateData);
+      console.log(JSON.stringify(updated, null, 2));
+      break;
+
+    case 'delete':
+      const deleteId = parseInt(args[0]);
+      if (!deleteId) {
+        console.error('Error: Tag ID required');
+        process.exit(1);
+      }
+      await client.deleteTag(deleteId);
+      console.log(JSON.stringify({ ok: true, message: `Tag ${deleteId} deleted successfully` }, null, 2));
+      break;
+
+    default:
+      console.error(`Unknown tag command: ${command}`);
+      console.error('Available commands: list, get, create, update, delete');
+      process.exit(1);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -34,6 +100,13 @@ Variables commands:
   variables create --key <key> --value <value>  Create a new variable
   variables update <id> --value <value>         Update a variable
   variables delete <id>  Delete a variable
+
+Tag Commands:
+  tags list [limit] [cursor]    List all tags (with optional pagination)
+  tags get <id>                 Get tag by ID
+  tags create <name> [color]    Create a new tag
+  tags update <id> [name] [color]  Update a tag
+  tags delete <id>              Delete tag by ID
 
 Environment variables:
   N8N_BASE_URL           n8n instance URL (default: http://localhost:5678)
@@ -110,6 +183,15 @@ Environment variables:
         }
         const deactivated = await client.deactivateWorkflow(deactivateId);
         console.log('Deactivated workflow:', JSON.stringify(deactivated, null, 2));
+        break;
+
+      case 'tags':
+        const tagCommand = args[1];
+        if (!tagCommand) {
+          console.error('Error: Tag command required (list|get|create|update|delete)');
+          process.exit(1);
+        }
+        await handleTagCommands(client, tagCommand, args.slice(2));
         break;
 
       case 'variables':

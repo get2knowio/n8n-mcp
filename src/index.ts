@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
-import { N8nConfig, N8nWorkflow, N8nVariable, N8nExecution, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
+import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
 
 export class N8nMcpServer {
   private server: Server;
@@ -332,6 +332,91 @@ export class N8nMcpServer {
               required: ['workflowId'],
             },
           },
+          {
+            name: 'list_tags',
+            description: 'List all tags with optional pagination',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of tags to return',
+                },
+                cursor: {
+                  type: 'string',
+                  description: 'Pagination cursor for next page',
+                },
+              },
+            },
+          },
+          {
+            name: 'get_tag',
+            description: 'Get a specific tag by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The tag ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'create_tag',
+            description: 'Create a new tag',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'The tag name',
+                },
+                color: {
+                  type: 'string',
+                  description: 'Optional hex color code for the tag',
+                },
+              },
+              required: ['name'],
+            },
+          },
+          {
+            name: 'update_tag',
+            description: 'Update an existing tag',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The tag ID',
+                },
+                name: {
+                  type: 'string',
+                  description: 'The tag name',
+                },
+                color: {
+                  type: 'string',
+                  description: 'Optional hex color code for the tag',
+                },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'delete_tag',
+            description: 'Delete a tag by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'number',
+                  description: 'The tag ID',
+                },
+              },
+              required: ['id'],
+            },
+          },
         ],
       };
     });
@@ -388,6 +473,21 @@ export class N8nMcpServer {
 
           case 'run_once':
             return await this.handleRunOnce(request.params.arguments as { workflowId: number; input?: any });
+
+          case 'list_tags':
+            return await this.handleListTags(request.params.arguments as { limit?: number; cursor?: string });
+
+          case 'get_tag':
+            return await this.handleGetTag(request.params.arguments as { id: number });
+
+          case 'create_tag':
+            return await this.handleCreateTag(request.params.arguments as { name: string; color?: string });
+
+          case 'update_tag':
+            return await this.handleUpdateTag(request.params.arguments as { id: number; name?: string; color?: string });
+
+          case 'delete_tag':
+            return await this.handleDeleteTag(request.params.arguments as { id: number });
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -599,6 +699,68 @@ export class N8nMcpServer {
       ],
     };
   }
+
+  private async handleListTags(args: { limit?: number; cursor?: string }) {
+    const tags = await this.n8nClient.listTags(args.limit, args.cursor);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tags, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetTag(args: { id: number }) {
+    const tag = await this.n8nClient.getTag(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tag, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleCreateTag(args: { name: string; color?: string }) {
+    const tag = await this.n8nClient.createTag(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tag, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleUpdateTag(args: { id: number; name?: string; color?: string }) {
+    const { id, ...updateData } = args;
+    const tag = await this.n8nClient.updateTag(id, updateData);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(tag, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleDeleteTag(args: { id: number }) {
+    await this.n8nClient.deleteTag(args.id);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, message: `Tag ${args.id} deleted successfully` }, null, 2),
+        },
+      ],
+    };
+  }
+
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow, N8nVariable, N8nExecution, N8nWebhookUrls } from '../types';
+import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -654,6 +654,102 @@ describe('N8nClient', () => {
       await expect(client.runOnce(999)).rejects.toThrow(
         'Workflow 999 not found or cannot be executed manually'
       );
+    });
+  });
+
+  describe('Tags API', () => {
+    const mockTag: N8nTag = {
+      id: 1,
+      name: 'Production',
+      color: '#ff0000',
+      createdAt: '2023-01-01T00:00:00.000Z',
+      updatedAt: '2023-01-01T00:00:00.000Z',
+    };
+
+    describe('listTags', () => {
+      it('should list tags without pagination', async () => {
+        const mockResponse = {
+          data: [mockTag],
+        };
+
+        mockApi.get.mockResolvedValue({ data: mockResponse });
+
+        const result = await client.listTags();
+
+        expect(mockApi.get).toHaveBeenCalledWith('/tags');
+        expect(result).toEqual(mockResponse);
+      });
+
+      it('should list tags with pagination parameters', async () => {
+        const mockResponse = {
+          data: [mockTag],
+          nextCursor: 'next_page',
+        };
+
+        mockApi.get.mockResolvedValue({ data: mockResponse });
+
+        const result = await client.listTags(10, 'current_cursor');
+
+        expect(mockApi.get).toHaveBeenCalledWith('/tags?limit=10&cursor=current_cursor');
+        expect(result).toEqual(mockResponse);
+      });
+    });
+
+    describe('getTag', () => {
+      it('should get a tag by ID', async () => {
+        const mockResponse = {
+          data: { data: mockTag },
+        };
+
+        mockApi.get.mockResolvedValue(mockResponse);
+
+        const result = await client.getTag(1);
+
+        expect(mockApi.get).toHaveBeenCalledWith('/tags/1');
+        expect(result).toEqual(mockTag);
+      });
+    });
+
+    describe('createTag', () => {
+      it('should create a new tag', async () => {
+        const newTag = { name: 'Development', color: '#00ff00' };
+        const mockResponse = {
+          data: { data: { ...mockTag, ...newTag, id: 2 } },
+        };
+
+        mockApi.post.mockResolvedValue(mockResponse);
+
+        const result = await client.createTag(newTag);
+
+        expect(mockApi.post).toHaveBeenCalledWith('/tags', newTag);
+        expect(result).toEqual({ ...mockTag, ...newTag, id: 2 });
+      });
+    });
+
+    describe('updateTag', () => {
+      it('should update a tag', async () => {
+        const updateData = { name: 'Updated Production', color: '#ff00ff' };
+        const mockResponse = {
+          data: { data: { ...mockTag, ...updateData } },
+        };
+
+        mockApi.put.mockResolvedValue(mockResponse);
+
+        const result = await client.updateTag(1, updateData);
+
+        expect(mockApi.put).toHaveBeenCalledWith('/tags/1', updateData);
+        expect(result).toEqual({ ...mockTag, ...updateData });
+      });
+    });
+
+    describe('deleteTag', () => {
+      it('should delete a tag', async () => {
+        mockApi.delete.mockResolvedValue({});
+
+        await client.deleteTag(1);
+
+        expect(mockApi.delete).toHaveBeenCalledWith('/tags/1');
+      });
     });
   });
 });

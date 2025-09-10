@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nVariable, N8nVariablesListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
+import { N8nWorkflow, N8nConfig, N8nApiResponse, N8nWorkflowsListResponse, N8nTag, N8nTagsListResponse, N8nVariable, N8nVariablesListResponse, N8nExecution, N8nExecutionsListResponse, N8nExecutionDeleteResponse, N8nWebhookUrls, N8nExecutionResponse } from './types.js';
 
 export class N8nClient {
   private api: AxiosInstance;
@@ -57,6 +57,39 @@ export class N8nClient {
     return response.data.data;
   }
 
+  // Tags API methods
+  async listTags(limit?: number, cursor?: string): Promise<N8nTagsListResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/tags?${queryString}` : '/tags';
+    
+    const response = await this.api.get<N8nTagsListResponse>(url);
+    return response.data;
+  }
+
+  async getTag(id: number): Promise<N8nTag> {
+    const response = await this.api.get<N8nApiResponse<N8nTag>>(`/tags/${id}`);
+    return response.data.data;
+  }
+
+  async createTag(tag: Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>): Promise<N8nTag> {
+    const response = await this.api.post<N8nApiResponse<N8nTag>>('/tags', tag);
+    return response.data.data;
+  }
+
+  async updateTag(id: number, tag: Partial<Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>>): Promise<N8nTag> {
+    const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, tag);
+    return response.data.data;
+  }
+
+  async deleteTag(id: number): Promise<void> {
+    await this.api.delete(`/tags/${id}`);
+  }
+
+  // Variables API methods
   async listVariables(): Promise<N8nVariablesListResponse> {
     const response = await this.api.get<N8nVariablesListResponse>('/variables');
     return response.data;
@@ -77,6 +110,7 @@ export class N8nClient {
     return { ok: true };
   }
 
+  // Executions API methods
   async listExecutions(options?: { limit?: number; cursor?: string; workflowId?: string }): Promise<N8nExecutionsListResponse> {
     const params = new URLSearchParams();
     
@@ -105,6 +139,7 @@ export class N8nClient {
     return { success: true };
   }
 
+  // Webhook URLs method
   async getWebhookUrls(workflowId: number, nodeId: string): Promise<N8nWebhookUrls> {
     // Get the workflow to find the webhook node
     const workflow = await this.getWorkflow(workflowId);
@@ -133,6 +168,7 @@ export class N8nClient {
     };
   }
 
+  // Manual execution method
   async runOnce(workflowId: number, input?: any): Promise<N8nExecutionResponse> {
     try {
       // Get the workflow to check if it's a trigger workflow

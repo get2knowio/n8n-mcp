@@ -20,6 +20,13 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Get Execution**: Retrieve specific execution details by ID
 - **Delete Execution**: Remove execution records
 
+### Tags Management
+- **Tags CRUD**: Create, read, update, and delete tags with pagination support
+- **List Tags**: Get all tags with optional pagination
+- **Create Tag**: Create new tags with name and optional color
+- **Update Tag**: Update existing tag name and/or color
+- **Delete Tag**: Remove tags by ID
+
 ### Variables Management
 - **List Variables**: Get all variables with pagination support
 - **Create Variable**: Create new key-value variables (enforces unique keys)
@@ -116,6 +123,14 @@ npm run cli run-once 1
 
 # Execute a workflow with input data
 npm run cli run-once 1 input-data.json
+
+# Tag commands
+npm run cli tags list
+npm run cli tags list 10
+npm run cli tags get 1
+npm run cli tags create "My Tag" "#ff0000"
+npm run cli tags update 1 "Updated Tag" "#00ff00"
+npm run cli tags delete 1
 ```
 
 ### Available Tools
@@ -135,15 +150,17 @@ npm run cli run-once 1 input-data.json
 12. **run_once** - Execute a workflow manually once
 
 #### Variables Tools
-8. **list_variables** - List all variables with pagination support
-9. **create_variable** - Create a new variable (requires unique key)
-10. **update_variable** - Update an existing variable value
-11. **delete_variable** - Delete a variable
-12. **list_executions** - List workflow executions with pagination
-13. **get_execution** - Get execution by ID
-14. **delete_execution** - Delete an execution
-15. **webhook_urls** - Get webhook URLs for a webhook node
-16. **run_once** - Execute a workflow manually once
+13. **list_variables** - List all variables with pagination support
+14. **create_variable** - Create a new variable (requires unique key)
+15. **update_variable** - Update an existing variable value
+16. **delete_variable** - Delete a variable
+
+#### Tag Tools
+17. **list_tags** - List all tags with optional pagination
+18. **get_tag** - Get tag by ID
+19. **create_tag** - Create a new tag
+20. **update_tag** - Update existing tag
+21. **delete_tag** - Delete a tag
 
 ## Example Workflow Creation
 
@@ -168,6 +185,35 @@ npm run cli run-once 1 input-data.json
   "tags": ["example"]
 }
 ```
+
+## Tag Management
+
+Tags are used to organize and group workflows in n8n. The MCP server provides comprehensive tag management capabilities:
+
+### Tag Operations
+
+- **List Tags**: Get all tags with optional pagination
+- **Get Tag**: Retrieve a specific tag by ID
+- **Create Tag**: Create a new tag with name and optional color
+- **Update Tag**: Modify tag name and/or color
+- **Delete Tag**: Remove a tag
+
+### Tag Examples
+
+```json
+{
+  "id": 1,
+  "name": "Production",
+  "color": "#ff0000",
+  "createdAt": "2023-01-01T00:00:00.000Z",
+  "updatedAt": "2023-01-01T00:00:00.000Z"
+}
+```
+
+The tag API supports:
+- **Pagination**: Use `limit` and `cursor` parameters when listing tags
+- **Color Support**: Optional hex color codes for visual organization
+- **Error Handling**: Proper 409 responses for duplicate names, 404 for missing tags
 
 ## Example Variable Management
 
@@ -332,6 +378,7 @@ The tool returns execution details:
   "status": "running" // or "completed", "failed", etc.
 }
 ```
+
 ## Development
 
 ### Setup
