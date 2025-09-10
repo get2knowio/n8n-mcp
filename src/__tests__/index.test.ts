@@ -28,6 +28,15 @@ jest.mock('../n8n-client', () => ({
     deleteWorkflow: jest.fn(),
     activateWorkflow: jest.fn(),
     deactivateWorkflow: jest.fn(),
+    listVariables: jest.fn(),
+    createVariable: jest.fn(),
+    updateVariable: jest.fn(),
+    deleteVariable: jest.fn(),
+    listExecutions: jest.fn(),
+    getExecution: jest.fn(),
+    deleteExecution: jest.fn(),
+    getWebhookUrls: jest.fn(),
+    runOnce: jest.fn(),
   }))
 }));
 
@@ -62,6 +71,41 @@ describe('N8nMcpServer', () => {
       
       // Restore for other tests
       process.env.N8N_BASE_URL = 'http://test-n8n.local:5678';
+    });
+  });
+
+  describe('MCP tools', () => {
+    describe('list tools', () => {
+      it('should include new tools in the tools list', async () => {
+        const { N8nMcpServer } = await import('../index');
+        const server = new N8nMcpServer();
+        
+        const listHandlers = mockServer.setRequestHandler.mock.calls.find(
+          (call: any) => call[0] === 'mocked-list-tools-schema'
+        );
+        expect(listHandlers).toBeDefined();
+        
+        const handler = listHandlers![1];
+        const result = await (handler as any)();
+
+        const toolNames = result.tools.map((tool: any) => tool.name);
+        expect(toolNames).toContain('webhook_urls');
+        expect(toolNames).toContain('run_once');
+
+        // Check webhook_urls tool schema
+        const webhookUrlsTool = result.tools.find((tool: any) => tool.name === 'webhook_urls');
+        expect(webhookUrlsTool.description).toBe('Get webhook URLs for a webhook node in a workflow');
+        expect(webhookUrlsTool.inputSchema.required).toEqual(['workflowId', 'nodeId']);
+        expect(webhookUrlsTool.inputSchema.properties.workflowId.type).toBe('number');
+        expect(webhookUrlsTool.inputSchema.properties.nodeId.type).toBe('string');
+
+        // Check run_once tool schema
+        const runOnceTool = result.tools.find((tool: any) => tool.name === 'run_once');
+        expect(runOnceTool.description).toBe('Execute a workflow manually once and return execution details');
+        expect(runOnceTool.inputSchema.required).toEqual(['workflowId']);
+        expect(runOnceTool.inputSchema.properties.workflowId.type).toBe('number');
+        expect(runOnceTool.inputSchema.properties.input).toBeDefined();
+      });
     });
   });
 });

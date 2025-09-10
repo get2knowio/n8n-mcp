@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 import { N8nClient } from '../n8n-client';
-import { N8nConfig, N8nWorkflow } from '../types';
+import { N8nConfig, N8nWorkflow, N8nTag, N8nVariable, N8nExecution, N8nWebhookUrls } from '../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -35,6 +35,28 @@ describe('N8nClient', () => {
     tags: ['test']
   };
 
+  const mockVariable: N8nVariable = {
+    id: 'var-123',
+    key: 'test-key',
+    value: 'test-value'
+  };
+
+  const mockExecution: N8nExecution = {
+    id: 'exec_123',
+    finished: true,
+    mode: 'manual',
+    startedAt: '2023-01-01T00:00:00.000Z',
+    stoppedAt: '2023-01-01T00:01:00.000Z',
+    workflowId: '1',
+    status: 'success',
+    data: {
+      resultData: {
+        runData: {},
+        lastNodeExecuted: 'webhook'
+      }
+    }
+  };
+
   beforeEach(() => {
     mockApi = {
       defaults: {
@@ -44,6 +66,7 @@ describe('N8nClient', () => {
       },
       get: jest.fn(),
       post: jest.fn(),
+      patch: jest.fn(),
       put: jest.fn(),
       delete: jest.fn(),
     };
@@ -278,6 +301,490 @@ describe('N8nClient', () => {
       mockApi.post.mockRejectedValue(error);
 
       await expect(client.deactivateWorkflow(1)).rejects.toThrow('Deactivation failed');
+    });
+  });
+
+  describe('listVariables', () => {
+    it('should return list of variables', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockVariable],
+          nextCursor: undefined
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listVariables();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/variables');
+      expect(result).toEqual({
+        data: [mockVariable],
+        nextCursor: undefined
+      });
+    });
+
+    it('should handle pagination', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockVariable],
+          nextCursor: 'next-cursor-123'
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listVariables();
+
+      expect(result.nextCursor).toBe('next-cursor-123');
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('API Error');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.listVariables()).rejects.toThrow('API Error');
+    });
+  });
+
+  describe('listExecutions', () => {
+    it('should return list of executions without options', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockExecution]
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listExecutions();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions');
+      expect(result).toEqual({ data: [mockExecution] });
+    });
+
+    it('should return list of executions with options', async () => {
+      const mockResponse = {
+        data: {
+          data: [mockExecution],
+          nextCursor: 'next_cursor_123'
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.listExecutions({ 
+        limit: 10, 
+        cursor: 'cursor_123',
+        workflowId: '1'
+      });
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions?limit=10&cursor=cursor_123&workflowId=1');
+      expect(result).toEqual({ data: [mockExecution], nextCursor: 'next_cursor_123' });
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('API Error');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.listExecutions()).rejects.toThrow('API Error');
+    });
+  });
+
+  describe('createVariable', () => {
+    it('should create a new variable', async () => {
+      const newVariable = { key: 'new-key', value: 'new-value' };
+      const mockResponse = {
+        data: {
+          data: { ...newVariable, id: 'var-456' }
+        }
+      };
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await client.createVariable(newVariable);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/variables', newVariable);
+      expect(result).toEqual({ ...newVariable, id: 'var-456' });
+    });
+
+    it('should handle duplicate key errors', async () => {
+      const newVariable = { key: 'existing-key', value: 'new-value' };
+      const error = new Error('Variable with key already exists');
+      mockApi.post.mockRejectedValue(error);
+
+      await expect(client.createVariable(newVariable)).rejects.toThrow('Variable with key already exists');
+    });
+  });
+
+  describe('updateVariable', () => {
+    it('should update an existing variable', async () => {
+      const updateData = { value: 'updated-value' };
+      const updatedVariable = { ...mockVariable, ...updateData };
+      
+      const mockResponse = {
+        data: {
+          data: updatedVariable
+        }
+      };
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await client.updateVariable('var-123', updateData);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/variables/var-123', updateData);
+      expect(result).toEqual(updatedVariable);
+    });
+
+    it('should handle update errors', async () => {
+      const updateData = { value: 'updated-value' };
+      const error = new Error('Variable not found');
+      mockApi.put.mockRejectedValue(error);
+
+      await expect(client.updateVariable('var-999', updateData)).rejects.toThrow('Variable not found');
+    });
+  });
+
+  describe('deleteVariable', () => {
+    it('should delete a variable', async () => {
+      mockApi.delete.mockResolvedValue({});
+
+      const result = await client.deleteVariable('var-123');
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/variables/var-123');
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('should handle deletion errors', async () => {
+      const error = new Error('Variable not found');
+      mockApi.delete.mockRejectedValue(error);
+
+      await expect(client.deleteVariable('var-999')).rejects.toThrow('Variable not found');
+    });
+  });
+
+  describe('getExecution', () => {
+    it('should return specific execution by ID', async () => {
+      const mockResponse = {
+        data: {
+          data: mockExecution
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.getExecution('exec_123');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions/exec_123');
+      expect(result).toEqual(mockExecution);
+    });
+
+    it('should handle execution not found', async () => {
+      const error = new Error('Execution not found');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.getExecution('nonexistent')).rejects.toThrow('Execution not found');
+    });
+  });
+
+  describe('deleteExecution', () => {
+    it('should delete an execution', async () => {
+      mockApi.delete.mockResolvedValue({});
+
+      const result = await client.deleteExecution('exec_123');
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/executions/exec_123');
+      expect(result).toEqual({ success: true });
+    });
+
+    it('should handle deletion errors', async () => {
+      const error = new Error('Deletion failed');
+      mockApi.delete.mockRejectedValue(error);
+
+      await expect(client.deleteExecution('exec_123')).rejects.toThrow('Deletion failed');
+    });
+  });
+
+  describe('getWebhookUrls', () => {
+    const mockWorkflowWithWebhook: N8nWorkflow = {
+      id: 1,
+      name: 'Test Workflow with Webhook',
+      nodes: [
+        {
+          id: 'webhook-node',
+          name: 'Webhook',
+          type: 'n8n-nodes-base.webhook',
+          typeVersion: 1,
+          position: [250, 300],
+          parameters: {
+            httpMethod: 'GET',
+            path: 'test-webhook'
+          }
+        }
+      ],
+      connections: {},
+      active: false
+    };
+
+    it('should return webhook URLs for a valid webhook node', async () => {
+      const mockResponse = {
+        data: {
+          data: mockWorkflowWithWebhook
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      const result = await client.getWebhookUrls(1, 'webhook-node');
+
+      expect(result).toEqual({
+        testUrl: 'http://test-n8n.local:5678/webhook-test/test-webhook',
+        productionUrl: 'http://test-n8n.local:5678/webhook/test-webhook'
+      });
+    });
+
+    it('should throw error when node is not found', async () => {
+      const mockResponse = {
+        data: {
+          data: mockWorkflowWithWebhook
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      await expect(client.getWebhookUrls(1, 'non-existent-node')).rejects.toThrow(
+        "Node with ID 'non-existent-node' not found in workflow 1"
+      );
+    });
+
+    it('should throw error when node is not a webhook node', async () => {
+      const workflowWithNonWebhook = {
+        ...mockWorkflowWithWebhook,
+        nodes: [
+          {
+            id: 'http-node',
+            name: 'HTTP Request',
+            type: 'n8n-nodes-base.httpRequest',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+      
+      const mockResponse = {
+        data: {
+          data: workflowWithNonWebhook
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      await expect(client.getWebhookUrls(1, 'http-node')).rejects.toThrow(
+        "Node 'http-node' is not a webhook node (type: n8n-nodes-base.httpRequest)"
+      );
+    });
+
+    it('should throw error when webhook node has no path', async () => {
+      const workflowWithoutPath = {
+        ...mockWorkflowWithWebhook,
+        nodes: [
+          {
+            id: 'webhook-node',
+            name: 'Webhook',
+            type: 'n8n-nodes-base.webhook',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+      
+      const mockResponse = {
+        data: {
+          data: workflowWithoutPath
+        }
+      };
+      mockApi.get.mockResolvedValue(mockResponse);
+
+      await expect(client.getWebhookUrls(1, 'webhook-node')).rejects.toThrow(
+        "Webhook node 'webhook-node' does not have a path configured"
+      );
+    });
+  });
+
+  describe('runOnce', () => {
+    const mockExecutionResponse = {
+      data: {
+        data: {
+          id: 'exec-123',
+          status: 'running'
+        }
+      }
+    };
+
+    it('should execute a manual workflow', async () => {
+      // Mock workflow without trigger nodes
+      const manualWorkflow = {
+        ...mockWorkflow,
+        nodes: [
+          {
+            id: 'start',
+            name: 'Start',
+            type: 'n8n-nodes-base.start',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+
+      mockApi.get.mockResolvedValue({ data: { data: manualWorkflow } });
+      mockApi.post.mockResolvedValue(mockExecutionResponse);
+
+      const result = await client.runOnce(1, { test: 'data' });
+
+      expect(mockApi.post).toHaveBeenCalledWith('/workflows/1/execute', {
+        data: { test: 'data' }
+      });
+      expect(result).toEqual({
+        executionId: 'exec-123',
+        status: 'running'
+      });
+    });
+
+    it('should execute a trigger workflow', async () => {
+      // Mock workflow with trigger nodes
+      const triggerWorkflow = {
+        ...mockWorkflow,
+        nodes: [
+          {
+            id: 'webhook',
+            name: 'Webhook',
+            type: 'n8n-nodes-base.webhook',
+            typeVersion: 1,
+            position: [250, 300],
+            parameters: {}
+          }
+        ]
+      };
+
+      mockApi.get.mockResolvedValue({ data: { data: triggerWorkflow } });
+      mockApi.post.mockResolvedValue(mockExecutionResponse);
+
+      const result = await client.runOnce(1);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/executions', {
+        workflowData: triggerWorkflow,
+        runData: {}
+      });
+      expect(result).toEqual({
+        executionId: 'exec-123',
+        status: 'running'
+      });
+    });
+
+    it('should handle execution errors', async () => {
+      mockApi.get.mockResolvedValue({ data: { data: mockWorkflow } });
+      const error = new Error('Execution failed');
+      mockApi.post.mockRejectedValue(error);
+
+      await expect(client.runOnce(1)).rejects.toThrow('Execution failed');
+    });
+
+    it('should handle workflow not found errors', async () => {
+      const error = new Error('404 - Workflow not found');
+      mockApi.get.mockRejectedValue(error);
+
+      await expect(client.runOnce(999)).rejects.toThrow(
+        'Workflow 999 not found or cannot be executed manually'
+      );
+    });
+  });
+
+  describe('Tags API', () => {
+    const mockTag: N8nTag = {
+      id: 1,
+      name: 'Production',
+      color: '#ff0000',
+      createdAt: '2023-01-01T00:00:00.000Z',
+      updatedAt: '2023-01-01T00:00:00.000Z',
+    };
+
+    describe('listTags', () => {
+      it('should list tags without pagination', async () => {
+        const mockResponse = {
+          data: [mockTag],
+        };
+
+        mockApi.get.mockResolvedValue({ data: mockResponse });
+
+        const result = await client.listTags();
+
+        expect(mockApi.get).toHaveBeenCalledWith('/tags');
+        expect(result).toEqual(mockResponse);
+      });
+
+      it('should list tags with pagination parameters', async () => {
+        const mockResponse = {
+          data: [mockTag],
+          nextCursor: 'next_page',
+        };
+
+        mockApi.get.mockResolvedValue({ data: mockResponse });
+
+        const result = await client.listTags(10, 'current_cursor');
+
+        expect(mockApi.get).toHaveBeenCalledWith('/tags?limit=10&cursor=current_cursor');
+        expect(result).toEqual(mockResponse);
+      });
+    });
+
+    describe('getTag', () => {
+      it('should get a tag by ID', async () => {
+        const mockResponse = {
+          data: { data: mockTag },
+        };
+
+        mockApi.get.mockResolvedValue(mockResponse);
+
+        const result = await client.getTag(1);
+
+        expect(mockApi.get).toHaveBeenCalledWith('/tags/1');
+        expect(result).toEqual(mockTag);
+      });
+    });
+
+    describe('createTag', () => {
+      it('should create a new tag', async () => {
+        const newTag = { name: 'Development', color: '#00ff00' };
+        const mockResponse = {
+          data: { data: { ...mockTag, ...newTag, id: 2 } },
+        };
+
+        mockApi.post.mockResolvedValue(mockResponse);
+
+        const result = await client.createTag(newTag);
+
+        expect(mockApi.post).toHaveBeenCalledWith('/tags', newTag);
+        expect(result).toEqual({ ...mockTag, ...newTag, id: 2 });
+      });
+    });
+
+    describe('updateTag', () => {
+      it('should update a tag', async () => {
+        const updateData = { name: 'Updated Production', color: '#ff00ff' };
+        const mockResponse = {
+          data: { data: { ...mockTag, ...updateData } },
+        };
+
+        mockApi.put.mockResolvedValue(mockResponse);
+
+        const result = await client.updateTag(1, updateData);
+
+        expect(mockApi.put).toHaveBeenCalledWith('/tags/1', updateData);
+        expect(result).toEqual({ ...mockTag, ...updateData });
+      });
+    });
+
+    describe('deleteTag', () => {
+      it('should delete a tag', async () => {
+        mockApi.delete.mockResolvedValue({});
+
+        await client.deleteTag(1);
+
+        expect(mockApi.delete).toHaveBeenCalledWith('/tags/1');
+      });
     });
   });
 });
