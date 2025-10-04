@@ -2,7 +2,7 @@
 
 [![CI/CD](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml)
 [![Release](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml)
-[![codecov](https://codecov.io/gh/get2knowio/n8n-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/get2knowio/n8n-mcp)
+[![Coverage Status](https://coveralls.io/repos/github/get2knowio/n8n-mcp/badge.svg?branch=main)](https://coveralls.io/github/get2knowio/n8n-mcp?branch=main)
 [![npm version](https://img.shields.io/npm/v/@get2knowio/n8n-mcp.svg)](https://www.npmjs.com/package/@get2knowio/n8n-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -616,7 +616,7 @@ This triggers the Release workflow which builds, tests, publishes to npm, and th
 
 ## Coverage Reporting
 
-Coverage is collected with Jest (`npm run test:coverage`) and uploaded in CI via Codecov. Ensure `CODECOV_TOKEN` is set in repository secrets (recommended even for public repos). After CI runs on Node 20.x, the Codecov badge at the top of this README will update automatically.
+Coverage is collected with Jest (`npm run test:coverage`) and uploaded in CI via Coveralls. The CI matrix uploads coverage in parallel for Node 18/20/22 and a finalize job completes the Coveralls build set.
 
 To create a new release:
 1. Update the version in `package.json`
