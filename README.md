@@ -53,7 +53,7 @@ npm install @get2knowio/n8n-mcp
 git clone https://github.com/get2knowio/n8n-mcp.git
 cd n8n-mcp
 npm install
-npm run build
+// See CONTRIBUTING.md for the full local dev workflow and build steps
 ```
 
 ## Configuration
@@ -75,94 +75,123 @@ export N8N_PASSWORD=your_password
 
 ## Usage
 
-### As an MCP Server
+### 1) As an MCP Server (recommended)
+
+Install globally and invoke the server binary which runs on stdio:
 
 ```bash
-npm start
+npm i -g @get2knowio/n8n-mcp
+n8n-mcp-server
 ```
 
-The server runs on stdio and implements the MCP protocol for integration with AI agents.
+This starts the MCP server on stdio for integration with AI agents. Configure access via environment variables (see Configuration).
 
-### As a CLI Tool
-
-For testing and development, you can use the CLI interface:
+You can also run without a global install using npx:
 
 ```bash
-# Using npx (no install)
+npx @get2knowio/n8n-mcp n8n-mcp-server
+```
+
+Note: Some MCP clients expect a command path for the server. Point them to `n8n-mcp-server`.
+
+### 2) As a CLI Tool
+
+The CLI binary is `n8n-mcp`. After a global install:
+
+```bash
+# Global install
+npm i -g @get2knowio/n8n-mcp
+
+# List workflows
+n8n-mcp list
+
+# With pagination
+n8n-mcp list --limit 25 --cursor NEXT_CURSOR
+
+# Get a workflow
+n8n-mcp get 1
+
+# Create from JSON
+n8n-mcp create examples/example-workflow.json
+
+# Activate / Deactivate
+n8n-mcp activate 1
+n8n-mcp deactivate 1
+
+# Variables
+n8n-mcp variables list
+n8n-mcp variables create --key mykey --value myvalue
+n8n-mcp variables update var-123 --value newvalue
+n8n-mcp variables delete var-123
+
+# Executions
+n8n-mcp executions list
+n8n-mcp executions get exec_123
+n8n-mcp executions delete exec_123
+
+# Tags
+n8n-mcp tags list
+n8n-mcp tags get 1
+n8n-mcp tags create "My Tag" "#ff0000"
+n8n-mcp tags update 1 "Updated Tag" "#00ff00"
+n8n-mcp tags delete 1
+
+# Webhook URLs
+n8n-mcp webhook-urls 1 webhook-node-id
+
+# Run once (optionally with input)
+n8n-mcp run-once 1
+n8n-mcp run-once 1 input-data.json
+```
+
+Use npx if you prefer not to install globally:
+
+```bash
 npx @get2knowio/n8n-mcp list
-
-# Or after installing locally
-npm run cli list
-
-# List workflows with pagination
-npm run cli list --limit 25 --cursor NEXT_CURSOR
-
-# Get a specific workflow
-npm run cli get 1
-
-# Create a workflow from JSON file
-npm run cli create examples/example-workflow.json
-
-# Delete a workflow
-npm run cli delete 1
-
-# Activate/deactivate workflows
-npm run cli activate 1
-npm run cli deactivate 1
-
-# Source control operations
-npm run cli source-control pull
-# Get credential schema
-npm run cli get-credential-schema httpHeaderAuth
-
-# Transfer workflows between projects/owners (Enterprise feature)
-# Note: Transfer operations require appropriate permissions and enterprise n8n setup
-npm run cli transfer_workflow 1 --project-id "project-123"
-npm run cli transfer_credential 2 --new-owner-id "user-456"
-
-# List workflow tags
-npm run cli workflows tags 1
-
-# Set workflow tags
-npm run cli workflows set-tags 1 --tags tag1,tag2,tag3
-
-# Variables management
-npm run cli variables list
-# Variables with pagination
-npm run cli variables list --limit 50 --cursor NEXT_CURSOR
-npm run cli variables create --key mykey --value myvalue
-npm run cli variables update var-123 --value newvalue
-npm run cli variables delete var-123
-
-# List executions
-npm run cli executions list
-
-# List executions with pagination and filtering
-npm run cli executions list --limit 50 --workflow-id 1
-
-# Get a specific execution
-npm run cli executions get exec_123
-
-# Delete an execution
-npm run cli executions delete exec_123
-
-# Get webhook URLs for a webhook node
-npm run cli webhook-urls 1 webhook-node-id
-
-# Execute a workflow manually once
-npm run cli run-once 1
-
-# Execute a workflow with input data
-npm run cli run-once 1 input-data.json
-
-# Tag commands
-npm run cli tags list
-npm run cli tags list 10
-npm run cli tags get 1
-npm run cli tags create "My Tag" "#ff0000"
-npm run cli tags update 1 "Updated Tag" "#00ff00"
-npm run cli tags delete 1
 ```
+
+For local development (npm scripts, running from source), see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## MCP client configuration examples
+
+You can point any MCP-capable client at the `n8n-mcp-server` binary. Two ready-to-copy examples are provided in the `examples/` folder.
+
+### Claude Desktop (macOS/Windows/Linux)
+Place this in your Claude Desktop config (see Anthropic docs for the exact path):
+
+```json
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "command": "n8n-mcp-server",
+      "env": {
+        "N8N_BASE_URL": "http://localhost:5678",
+        "N8N_API_KEY": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+Example file: `examples/mcp-client-claude-desktop.json`
+
+### Generic MCP client
+```json
+{
+  "servers": [
+    {
+      "name": "n8n-mcp",
+      "command": "n8n-mcp-server",
+      "env": {
+        "N8N_BASE_URL": "http://localhost:5678",
+        "N8N_API_KEY": "your_api_key_here"
+      }
+    }
+  ]
+}
+```
+
+Example file: `examples/mcp-client-generic.json`
 
 ### Available Tools
 
@@ -394,16 +423,16 @@ Variables in n8n are simple key-value pairs that can be used for configuration a
 
 ```bash
 # Create a variable
-npm run cli variables create --key environment --value production
+n8n-mcp variables create --key environment --value production
 
 # List all variables
-npm run cli variables list
+n8n-mcp variables list
 
 # Update a variable value
-npm run cli variables update var-123 --value "https://api.newdomain.com/v2"
+n8n-mcp variables update var-123 --value "https://api.newdomain.com/v2"
 
 # Delete a variable
-npm run cli variables delete var-123
+n8n-mcp variables delete var-123
 ```
 
 ### MCP Tool Usage
@@ -423,13 +452,13 @@ The server provides comprehensive execution management capabilities:
 
 ```bash
 # List recent executions
-npm run cli executions list
+n8n-mcp executions list
 
 # List with pagination
-npm run cli executions list --limit 20 --cursor next_page_cursor
+n8n-mcp executions list --limit 20 --cursor next_page_cursor
 
 # Filter by workflow
-npm run cli executions list --workflow-id 1
+n8n-mcp executions list --workflow-id 1
 ```
 
 The `list_executions` tool supports:
@@ -440,7 +469,7 @@ The `list_executions` tool supports:
 ### Getting Execution Details
 
 ```bash
-npm run cli executions get exec_12345
+n8n-mcp executions get exec_12345
 ```
 
 Returns complete execution data including:
@@ -452,7 +481,7 @@ Returns complete execution data including:
 ### Deleting Executions
 
 ```bash
-npm run cli executions delete exec_12345
+n8n-mcp executions delete exec_12345
 ```
 
 Permanently removes execution records to help manage storage.
@@ -544,34 +573,7 @@ The tool returns execution details:
 
 ## Development
 
-### Setup
-```bash
-npm install
-npm run build
-```
-
-### Testing
-```bash
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
-
-# Lint code (TypeScript type checking)
-npm run lint
-```
-
-### Scripts
-```bash
-npm run dev      # Watch mode for development
-npm run build    # Build TypeScript
-npm run test     # Run tests
-npm run lint     # TypeScript type checking
-```
+For local development, testing, and release workflows, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ### Contributing
 1. Fork the repository
@@ -616,7 +618,7 @@ This triggers the Release workflow which builds, tests, publishes to npm, and th
 
 ## Coverage Reporting
 
-Coverage is collected with Jest (`npm run test:coverage`) and uploaded in CI via Coveralls. The CI matrix uploads coverage in parallel for Node 18/20/22 and a finalize job completes the Coveralls build set.
+Coverage is collected with Jest and uploaded in CI via Coveralls. See [CONTRIBUTING.md](./CONTRIBUTING.md) for local coverage commands.
 
 To create a new release:
 1. Update the version in `package.json`

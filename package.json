@@ -1,6 +1,6 @@
 {
   "name": "@get2knowio/n8n-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "MCP server for n8n workflow management",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,8 @@
     "LICENSE"
   ],
   "bin": {
-    "n8n-mcp": "dist/cli.js"
+    "n8n-mcp": "dist/cli.js",
+    "n8n-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",

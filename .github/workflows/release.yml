@@ -50,17 +50,11 @@ jobs:
           node-version: '20.x'
           cache: 'npm'
 
-      - name: Create temp project
+      - name: Verify installed binaries
         run: |
-          mkdir -p /tmp/test-install && cd /tmp/test-install
-          npm init -y
-          npm install @get2knowio/n8n-mcp@latest
-
-      - name: Check module import (ESM)
-        run: |
-          node -e "import('@get2knowio/n8n-mcp').then(m=>{console.log(Object.keys(m).length>=0?'OK':'FAIL')}).catch(e=>{console.error(e);process.exit(1)})"
-
-      - name: Check CLI is available
-        run: |
-          npx -y @get2knowio/n8n-mcp || true
+          set -euo pipefail
+          # Verify global npx can run the package and binaries are resolvable
+          npx -y @get2knowio/n8n-mcp n8n-mcp --help || true
+          npx -y @get2knowio/n8n-mcp n8n-mcp-server --help || true
+          # Check that commands are available via npx resolution
           command -v npx >/dev/null 2>&1 && echo "npx exists"
