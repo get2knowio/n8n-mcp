@@ -89,9 +89,10 @@ npm ci          # Clean install (CI uses this, not npm install)
 npm run lint    # TypeScript type checking
 npm run build   # Build project
 npm run test    # Run test suite
+npm run test:coverage  # Produce coverage/lcov.info (uploaded to Coveralls in CI)
 ```
 
-**CI Pipeline Requirements**: The project tests against Node.js versions 18.x, 20.x, and 22.x. Current development uses Node.js v20.19.4.
+**CI Pipeline Requirements**: The project tests against Node.js versions 18.x, 20.x, and 22.x. Current development uses Node.js v20.19.4. Coverage is uploaded to Coveralls (parallel uploads with a finalize step).
 
 ## Pull Request Hygiene: Auto-close Issues
 
@@ -190,10 +191,20 @@ coverage/       # Test coverage reports
 ```
 
 ### Release Process
-1. Automated via GitHub releases
+1. Automated via GitHub Releases (tag publish)
 2. Triggers `.github/workflows/release.yml`
-3. Publishes to GitHub Packages as `@get2knowio/n8n-mcp`
-4. Requires passing CI tests and successful build
+3. Publishes to the public npm registry as `@get2knowio/n8n-mcp`
+4. Runs a post-publish smoke test (installs from npm, verifies ESM import and CLI)
+5. Requires passing CI tests and successful build
+
+Release notes formatting rules:
+- Write plain Markdown in the GitHub Release body (do NOT include escaped `\n` sequences)
+- Use short sections and bullet lists; avoid long single-line paragraphs
+- Example title: `v0.1.2`
+- Example body:
+	- Publish to npm
+	- Post-publish verify (install, ESM import, CLI)
+	- CI: Coveralls coverage upload (parallel + finalize)
 
 ## Troubleshooting
 

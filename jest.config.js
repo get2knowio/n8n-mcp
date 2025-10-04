@@ -11,6 +11,14 @@ export default {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: {
+      statements: 60,
+      branches: 50,
+      functions: 56,
+      lines: 61,
+    },
+  },
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       useESM: true,
