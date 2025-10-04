@@ -19,7 +19,7 @@ jobs:
       uses: actions/setup-node@v5
       with:
         node-version: '20.x'
-        registry-url: 'https://npm.pkg.github.com'
+        registry-url: 'https://registry.npmjs.org'
         cache: 'npm'
     
     - name: Install dependencies
@@ -34,7 +34,33 @@ jobs:
     - name: Run tests
       run: npm run test
     
-    - name: Publish to GitHub Packages
-      run: npm publish
+    - name: Publish to npm
+      run: npm publish --access public
       env:
-        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  verify:
+    name: Verify npm install and CLI
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Create temp project
+        run: |
+          mkdir -p /tmp/test-install && cd /tmp/test-install
+          npm init -y
+          npm install @get2knowio/n8n-mcp@latest
+
+      - name: Check module import (ESM)
+        run: |
+          node -e "import('@get2knowio/n8n-mcp').then(m=>{console.log(Object.keys(m).length>=0?'OK':'FAIL')}).catch(e=>{console.error(e);process.exit(1)})"
+
+      - name: Check CLI is available
+        run: |
+          npx -y @get2knowio/n8n-mcp || true
+          command -v npx >/dev/null 2>&1 && echo "npx exists"

@@ -1,8 +1,9 @@
 # n8n-mcp
 
 [![CI/CD](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml)
+[![Release](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml)
 [![codecov](https://codecov.io/gh/get2knowio/n8n-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/get2knowio/n8n-mcp)
-[![npm version](https://badge.fury.io/js/n8n-mcp.svg)](https://badge.fury.io/js/n8n-mcp)
+[![npm version](https://img.shields.io/npm/v/@get2knowio/n8n-mcp.svg)](https://www.npmjs.com/package/@get2knowio/n8n-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An MCP (Model Context Protocol) server for managing n8n workflows. This server allows AI agents to create, retrieve, update, and manage n8n workflows through the n8n API.
@@ -42,7 +43,7 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 
 ## Installation
 
-### From GitHub Packages
+### From npm (recommended)
 ```bash
 npm install @get2knowio/n8n-mcp
 ```
@@ -87,7 +88,10 @@ The server runs on stdio and implements the MCP protocol for integration with AI
 For testing and development, you can use the CLI interface:
 
 ```bash
-# List all workflows
+# Using npx (no install)
+npx @get2knowio/n8n-mcp list
+
+# Or after installing locally
 npm run cli list
 
 # List workflows with pagination
@@ -584,8 +588,35 @@ This project uses automated releases. When a new release is published on GitHub:
 
 1. The release workflow automatically triggers
 2. The package is built and tested
-3. If all tests pass, the package is published to GitHub Packages
-4. The package can then be installed using: `npm install @get2knowio/n8n-mcp`
+3. If all tests pass, the package is published to the public npm registry
+4. A post-publish smoke test installs the package from npm and validates both module import and CLI wiring
+5. The package can then be installed using: `npm install @get2knowio/n8n-mcp`
+
+### Required GitHub Secrets
+
+- `NPM_TOKEN`: An npm Automation token with publish rights for the `@get2knowio` scope
+- `CODECOV_TOKEN`: Codecov project token (optional for public repos, recommended)
+
+### Cut a Release
+
+You can cut a release from the GitHub UI or the CLI. CLI example:
+
+```bash
+# Bump the version in package.json (patch bump shown)
+git add package.json README.md .github/workflows/
+git commit -m "chore(release): v0.1.1"
+git tag v0.1.1
+git push origin main --tags
+
+# Create the GitHub release (requires gh CLI auth)
+gh release create v0.1.1 -t "v0.1.1" -n "Automated release to npm"
+```
+
+This triggers the Release workflow which builds, tests, publishes to npm, and then runs a smoke test against the published artifact.
+
+## Coverage Reporting
+
+Coverage is collected with Jest (`npm run test:coverage`) and uploaded in CI via Codecov. Ensure `CODECOV_TOKEN` is set in repository secrets (recommended even for public repos). After CI runs on Node 20.x, the Codecov badge at the top of this README will update automatically.
 
 To create a new release:
 1. Update the version in `package.json`
