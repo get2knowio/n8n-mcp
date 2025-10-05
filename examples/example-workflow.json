@@ -48,5 +48,5 @@
     }
   },
   "active": false,
-  "tags": ["example", "webhook", "api"]
+  "settings": {}
 }

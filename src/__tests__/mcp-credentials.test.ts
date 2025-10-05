@@ -119,14 +119,10 @@ describe('N8nMcpServer - Credential Tools', () => {
       });
 
       expect(mockN8nClientInstance.listCredentials).toHaveBeenCalled();
-      expect(result).toEqual({
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(mockCredentials, null, 2),
-          },
-        ],
-      });
+      expect(result.content[0].type).toBe('text');
+      const payload = JSON.parse(result.content[0].text);
+      expect(payload.ok).toBe(true);
+      expect(payload.data).toEqual(mockCredentials);
     });
 
     it('should handle resolve_credential_alias tool call', async () => {
@@ -149,14 +145,10 @@ describe('N8nMcpServer - Credential Tools', () => {
       });
 
       expect(mockN8nClientInstance.resolveCredentialAlias).toHaveBeenCalledWith(testAlias);
-      expect(result).toEqual({
-        content: [
-          {
-            type: 'text',
-            text: `Credential alias '${testAlias}' resolved to ID: ${resolvedId}`,
-          },
-        ],
-      });
+      expect(result.content[0].type).toBe('text');
+      const payload2 = JSON.parse(result.content[0].text);
+      expect(payload2.ok).toBe(true);
+      expect(payload2.data).toEqual({ alias: testAlias, id: resolvedId });
     });
 
     it('should handle errors in list_credentials tool', async () => {
@@ -177,14 +169,10 @@ describe('N8nMcpServer - Credential Tools', () => {
         }
       });
 
-      expect(result).toEqual({
-        content: [
-          {
-            type: 'text',
-            text: `Error: ${errorMessage}`,
-          },
-        ],
-      });
+      expect(result.content[0].type).toBe('text');
+      const errPayload = JSON.parse(result.content[0].text);
+      expect(errPayload.ok).toBe(false);
+      expect(errPayload.error.message).toBe(errorMessage);
     });
 
     it('should handle errors in resolve_credential_alias tool', async () => {
@@ -206,14 +194,10 @@ describe('N8nMcpServer - Credential Tools', () => {
         }
       });
 
-      expect(result).toEqual({
-        content: [
-          {
-            type: 'text',
-            text: `Error: ${errorMessage}`,
-          },
-        ],
-      });
+      expect(result.content[0].type).toBe('text');
+      const errPayload2 = JSON.parse(result.content[0].text);
+      expect(errPayload2.ok).toBe(false);
+      expect(errPayload2.error.message).toBe(errorMessage);
     });
   });
 });

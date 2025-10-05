@@ -154,3 +154,31 @@ Supported operation types:
 - `setWorkflowProperty`: Update workflow-level property
 - `addTag`: Add workflow tag
 - `removeTag`: Remove workflow tag
+
+## CLI Smoke Tests (real n8n) 🔥
+
+These smoke tests exercise the built CLI (`dist/cli.js`) against a real n8n instance to validate command wiring and responses. They also enable source maps so any thrown errors include proper TypeScript stack traces.
+
+Prerequisites:
+- Running n8n instance reachable from this environment
+- Environment variables configured (auto-loaded from a `.env` file at the repo root):
+  - `N8N_BASE_URL` (e.g. http://localhost:5678)
+  - Either `N8N_API_KEY` (recommended) OR `N8N_USERNAME` and `N8N_PASSWORD`
+
+Run sequence:
+
+1) Build the project (emits dist with source maps):
+  - `npm run build`
+
+2) Execute smoke tests:
+  - `npm run smoke`
+
+What it does:
+- Lists workflows (limit 1)
+- Creates `examples/example-workflow.json`
+- Gets the created workflow by ID
+- Activates it, fetches webhook URLs, deactivates it
+- Lists executions (limit 1)
+- Cleans up by deleting the workflow
+
+If any step fails, the script exits with non-zero and prints stdout/stderr along with mapped stack traces.

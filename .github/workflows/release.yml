@@ -54,6 +54,6 @@ jobs:
           set -euo pipefail
           # Verify global npx can run the package and binaries are resolvable
           npx -y @get2knowio/n8n-mcp n8n-mcp --help || true
-          npx -y @get2knowio/n8n-mcp n8n-mcp-server --help || true
+          npx -y @get2knowio/n8n-mcp --help || true
           # Check that commands are available via npx resolution
           command -v npx >/dev/null 2>&1 && echo "npx exists"

@@ -22,15 +22,18 @@ export class WorkflowOperationsProcessor {
   /**
    * Apply a batch of operations to a workflow atomically
    */
-  async applyOperations(workflow: N8nWorkflow, operations: PatchOperation[]): Promise<ApplyOpsResponse> {
+  async applyOperations(workflow: N8nWorkflow, operations: PatchOperation[] | undefined | null): Promise<ApplyOpsResponse> {
     // Create a deep copy of the workflow to work with
     const workflowCopy = JSON.parse(JSON.stringify(workflow)) as N8nWorkflow;
     const errors: OperationError[] = [];
 
     try {
+      // Normalize operations to an empty array if undefined/null
+      const ops = Array.isArray(operations) ? operations : [];
+
       // Apply each operation
-      for (let i = 0; i < operations.length; i++) {
-        const operation = operations[i];
+      for (let i = 0; i < ops.length; i++) {
+        const operation = ops[i];
         try {
           this.applyOperation(workflowCopy, operation);
         } catch (error) {
@@ -62,7 +65,7 @@ export class WorkflowOperationsProcessor {
         success: false,
         errors: [{
           operationIndex: -1,
-          operation: operations[0], // fallback
+          operation: (Array.isArray(operations) && operations.length > 0 ? operations[0] : ({ type: 'unknown' } as any)),
           error: errorMessage
         }]
       };

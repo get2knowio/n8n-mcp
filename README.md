@@ -77,22 +77,20 @@ export N8N_PASSWORD=your_password
 
 ### 1) As an MCP Server (recommended)
 
-Install globally and invoke the server binary which runs on stdio:
+Run the MCP server (recommended) — unified entrypoint:
 
 ```bash
+# Global install
 npm i -g @get2knowio/n8n-mcp
-n8n-mcp-server
+
+# Start server on stdio
+n8n-mcp
+
+# Or without global install
+npx @get2knowio/n8n-mcp
 ```
 
 This starts the MCP server on stdio for integration with AI agents. Configure access via environment variables (see Configuration).
-
-You can also run without a global install using npx:
-
-```bash
-npx @get2knowio/n8n-mcp n8n-mcp-server
-```
-
-Note: Some MCP clients expect a command path for the server. Point them to `n8n-mcp-server`.
 
 ### 2) As a CLI Tool
 
@@ -144,6 +142,30 @@ n8n-mcp run-once 1
 n8n-mcp run-once 1 input-data.json
 ```
 
+#### CLI Output Format
+- All commands emit structured JSON to stdout by default.
+- Success shape: `{ "ok": true, "data": <payload>, "meta"?: { ... } }`
+- Error shape: `{ "ok": false, "error": { "message": string, "code"?: string, "details"?: any } }` with non-zero exit.
+- Flags:
+  - `--compact` prints single-line JSON (pretty is default).
+  - `--verbose` enables debug logging to stderr without affecting stdout JSON.
+- IDs: Workflow IDs may be strings or numbers; the CLI accepts either.
+
+Examples:
+```bash
+# List (pretty JSON)
+n8n-mcp list --limit 1
+# => { "ok": true, "data": { "data": [ ... ], "nextCursor": "..." } }
+
+# Get (compact JSON)
+n8n-mcp --compact get i47DndfezvDVfrVx
+# => {"ok":true,"data":{"id":"i47DndfezvDVfrVx", ...}}
+
+# Errors return ok:false and exit 1
+n8n-mcp get
+# => { "ok": false, "error": { "message": "Workflow ID required", "code": "BAD_INPUT" } }
+```
+
 Use npx if you prefer not to install globally:
 
 ```bash
@@ -154,7 +176,7 @@ For local development (npm scripts, running from source), see [CONTRIBUTING.md](
 
 ## MCP client configuration examples
 
-You can point any MCP-capable client at the `n8n-mcp-server` binary. Two ready-to-copy examples are provided in the `examples/` folder.
+You can point any MCP-capable client at the `n8n-mcp` command. Two ready-to-copy examples are provided in the `examples/` folder.
 
 ### Claude Desktop (macOS/Windows/Linux)
 Place this in your Claude Desktop config (see Anthropic docs for the exact path):
@@ -163,7 +185,8 @@ Place this in your Claude Desktop config (see Anthropic docs for the exact path)
 {
   "mcpServers": {
     "n8n-mcp": {
-      "command": "n8n-mcp-server",
+  "command": "npx",
+  "args": ["-y", "-p", "@get2knowio/n8n-mcp"],
       "env": {
         "N8N_BASE_URL": "http://localhost:5678",
         "N8N_API_KEY": "your_api_key_here"
@@ -181,7 +204,8 @@ Example file: `examples/mcp-client-claude-desktop.json`
   "servers": [
     {
       "name": "n8n-mcp",
-      "command": "n8n-mcp-server",
+  "command": "npx",
+  "args": ["-y", "-p", "@get2knowio/n8n-mcp"],
       "env": {
         "N8N_BASE_URL": "http://localhost:5678",
         "N8N_API_KEY": "your_api_key_here"
@@ -192,6 +216,38 @@ Example file: `examples/mcp-client-claude-desktop.json`
 ```
 
 Example file: `examples/mcp-client-generic.json`
+
+### VS Code MCP (Troubleshooting)
+
+Some environments require an explicit npx invocation so the package is available on PATH at startup. If you see errors like `sh: 1: n8n-mcp: not found`, configure VS Code MCP to use the following form which installs the package on-demand and runs the server:
+
+```jsonc
+{
+  "servers": {
+    "n8n-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "-p",
+  "@get2knowio/n8n-mcp@<version>"
+      ],
+      "env": {
+        "N8N_BASE_URL": "${input:n8n_base_url}",
+        "N8N_API_KEY": "${input:n8n_api_key}"
+      }
+    }
+  }
+}
+```
+
+Alternatively, install globally and reference the binary directly:
+
+```bash
+npm i -g @get2knowio/n8n-mcp@<version>
+```
+
+Then set `command` to `npx` with args `["-y", "-p", "@get2knowio/n8n-mcp@<version>"]` or, after global install, use `n8n-mcp`.
 
 ### Available Tools
 
@@ -571,19 +627,6 @@ The tool returns execution details:
 }
 ```
 
-## Development
-
-For local development, testing, and release workflows, see [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-### Contributing
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-All contributions are welcome! Please make sure to update tests as appropriate and follow the existing code style.
-
 ## Releases
 
 This project uses automated releases. When a new release is published on GitHub:
@@ -594,10 +637,9 @@ This project uses automated releases. When a new release is published on GitHub:
 4. A post-publish smoke test installs the package from npm and validates both module import and CLI wiring
 5. The package can then be installed using: `npm install @get2knowio/n8n-mcp`
 
-### Required GitHub Secrets
+### Required GitHub Secret
 
 - `NPM_TOKEN`: An npm Automation token with publish rights for the `@get2knowio` scope
-- `CODECOV_TOKEN`: Codecov project token (optional for public repos, recommended)
 
 ### Cut a Release
 
@@ -625,6 +667,40 @@ To create a new release:
 2. Create a new release on GitHub with a tag matching the version
 3. The automated workflow will handle the rest
 
+### Smoke Tests (real n8n)
+
+You can validate CLI wiring against a live n8n instance using:
+
+```bash
+npm run build
+npm run smoke
+```
+
+The smoke runner loads `.env` (N8N_BASE_URL + credentials) and enables source maps for readable stacks.
+
 ## License
 
 MIT
+
+## Debugging and traceable errors
+
+To get structured, traceable errors with correlation IDs and source-mapped stacks while developing or troubleshooting:
+
+- Enable debug logs by setting MCP_DEBUG=debug
+- Enable source maps by setting MCP_ENABLE_SOURCE_MAPS=1 (Node 18+ also supports the `--enable-source-maps` flag)
+
+Examples:
+
+```bash
+# Start MCP server with debug logging and write logs to a file (stderr)
+MCP_DEBUG=debug MCP_ENABLE_SOURCE_MAPS=1 npm start 2>server.log
+
+# Use CLI with verbose output
+N8N_BASE_URL=http://localhost:5678 N8N_API_KEY=xxx \
+  node dist/cli.js --verbose list
+```
+
+Notes:
+- All logs are written to stderr in JSON to avoid interfering with MCP stdout.
+- Each tool call includes a correlationId you can grep across logs.
+- Axios request/response traces are included in debug mode with sensitive fields redacted.

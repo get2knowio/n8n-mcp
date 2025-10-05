@@ -231,5 +231,35 @@ describe('N8nClient applyOperations', () => {
       expect(result.success).toBe(true);
       expect(result.workflow).toEqual(sampleWorkflow);
     });
+
+    it('should handle undefined operations input gracefully', async () => {
+      // Mock getWorkflow to return current workflow
+      mockAxios.get.mockResolvedValueOnce({
+        data: {
+          data: sampleWorkflow,
+        },
+      });
+
+      // Mock updateWorkflow to return unchanged workflow
+      mockAxios.put.mockResolvedValueOnce({
+        data: {
+          data: sampleWorkflow,
+        },
+      });
+
+      // Pass undefined as operations (casting to any to simulate bad client input)
+      const result = await client.applyOperations(1, undefined as any);
+
+      expect(result.success).toBe(true);
+      expect(result.workflow).toEqual(sampleWorkflow);
+
+      // Verify API calls
+      expect(mockAxios.get).toHaveBeenCalledWith('/workflows/1');
+      expect(mockAxios.put).toHaveBeenCalledWith(
+        '/workflows/1',
+        expect.objectContaining({ id: sampleWorkflow.id, name: sampleWorkflow.name }),
+        expect.any(Object),
+      );
+    });
   });
 });

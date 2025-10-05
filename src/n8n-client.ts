@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { logger, getLogLevel, redact } from './logger.js';
 import {
   N8nWorkflow,
   N8nConfig,
@@ -61,6 +62,49 @@ export class N8nClient {
       const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
       this.api.defaults.headers.common['Authorization'] = `Basic ${auth}`;
     }
+
+    // Axios interceptors for debug tracing
+    if (getLogLevel() === 'debug') {
+      this.api.interceptors.request.use((req) => {
+        (req as any).__start = Date.now();
+        logger.debug('HTTP request', {
+          method: req.method,
+          url: req.baseURL ? `${req.baseURL}${req.url}` : req.url,
+          headers: redact(req.headers as any),
+          params: redact(req.params as any),
+        });
+        return req;
+      });
+
+      this.api.interceptors.response.use(
+        (res) => {
+          const start = (res.config as any).__start || Date.now();
+          const durationMs = Date.now() - start;
+          logger.debug('HTTP response', {
+            status: res.status,
+            url: res.config.baseURL ? `${res.config.baseURL}${res.config.url}` : res.config.url,
+            durationMs,
+          });
+          return res;
+        },
+        (err) => {
+          try {
+            const cfg = err?.config || {};
+            const start = (cfg as any).__start || Date.now();
+            const durationMs = Date.now() - start;
+            logger.error('HTTP error', {
+              url: cfg.baseURL ? `${cfg.baseURL}${cfg.url}` : cfg.url,
+              method: cfg.method,
+              status: err?.response?.status,
+              data: redact(err?.response?.data),
+              durationMs,
+              message: err?.message,
+            });
+          } catch {}
+          return Promise.reject(err);
+        },
+      );
+    }
   }
 
   async listWorkflows(limit?: number, cursor?: string): Promise<N8nWorkflowsListResponse> {
@@ -72,35 +116,53 @@ export class N8nClient {
     return response.data;
   }
 
-  async getWorkflow(id: number): Promise<N8nWorkflow> {
-    const response = await this.api.get<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`);
-    return response.data.data;
+  async getWorkflow(id: string | number): Promise<N8nWorkflow> {
+    const response = await this.api.get<N8nApiResponse<N8nWorkflow> | N8nWorkflow>(`/workflows/${id}`);
+    const payload: any = response.data as any;
+    return (payload && typeof payload === 'object' && 'data' in payload) ? payload.data : payload;
   }
 
-  async getWorkflowWithETag(id: number): Promise<{ workflow: N8nWorkflow; etag: string | null }> {
-    const response = await this.api.get<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`);
+  async getWorkflowWithETag(id: string | number): Promise<{ workflow: N8nWorkflow; etag: string | null }> {
+    const response = await this.api.get<N8nApiResponse<N8nWorkflow> | N8nWorkflow>(`/workflows/${id}`);
     const headers: any = response.headers || {};
     const etag = headers.etag || headers.ETag || headers['etag'] || headers['ETag'] || null;
-    return { workflow: response.data.data, etag };
+    const payload: any = response.data as any;
+    const workflow: N8nWorkflow = (payload && typeof payload === 'object' && 'data' in payload) ? payload.data : payload;
+    return { workflow, etag };
   }
 
   async createWorkflow(workflow: Omit<N8nWorkflow, 'id'>): Promise<N8nWorkflow> {
     // Resolve credential aliases before creating the workflow
     await this.resolveCredentialsInWorkflow(workflow);
-    
-    const response = await this.api.post<N8nApiResponse<N8nWorkflow>>('/workflows', workflow);
-    return response.data.data;
+    // Ensure required fields expected by n8n API
+    if ((workflow as any).settings == null) {
+      (workflow as any).settings = {};
+    }
+    // Some n8n deployments may not accept non-numeric tag values on create.
+    // If tags are provided as strings (names), omit them here; users can set numeric tag IDs via setWorkflowTags.
+    if (Array.isArray((workflow as any).tags) && (workflow as any).tags.some((t: any) => typeof t !== 'number')) {
+      delete (workflow as any).tags;
+    }
+    // 'active' is managed via dedicated activate/deactivate endpoints; omit on create
+    if ('active' in (workflow as any)) {
+      delete (workflow as any).active;
+    }
+    const response = await this.api.post<N8nApiResponse<N8nWorkflow> | N8nWorkflow>('/workflows', workflow);
+    const payload: any = response.data as any;
+    return (payload && typeof payload === 'object' && 'data' in payload) ? payload.data : payload;
   }
 
-  async updateWorkflow(id: number, workflow: Partial<N8nWorkflow>, ifMatch?: string): Promise<N8nWorkflow> {
+  async updateWorkflow(id: string | number, workflow: Partial<N8nWorkflow>, ifMatch?: string): Promise<N8nWorkflow> {
     // Resolve credential aliases before updating the workflow
     await this.resolveCredentialsInWorkflow(workflow);
     
     const headers: Record<string, string> = {};
+    // Allow 'active' to be updated via standard update to support tests and API compatibility
     if (ifMatch) headers['If-Match'] = ifMatch;
     try {
-      const response = await this.api.put<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}`, workflow, { headers });
-      return response.data.data;
+      const response = await this.api.put<N8nApiResponse<N8nWorkflow> | N8nWorkflow>(`/workflows/${id}`, workflow, { headers });
+      const payload: any = response.data as any;
+      return (payload && typeof payload === 'object' && 'data' in payload) ? payload.data : payload;
     } catch (error: any) {
       if (error.response?.status === 412) {
         throw new Error(
@@ -111,18 +173,20 @@ export class N8nClient {
     }
   }
 
-  async deleteWorkflow(id: number): Promise<void> {
+  async deleteWorkflow(id: string | number): Promise<void> {
     await this.api.delete(`/workflows/${id}`);
   }
 
-  async activateWorkflow(id: number): Promise<N8nWorkflow> {
-    const response = await this.api.post<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}/activate`);
-    return response.data.data;
+  async activateWorkflow(id: string | number): Promise<N8nWorkflow> {
+    const response = await this.api.post<N8nApiResponse<N8nWorkflow> | N8nWorkflow>(`/workflows/${id}/activate`);
+    const payload: any = response.data as any;
+    return (payload && typeof payload === 'object' && 'data' in payload) ? payload.data : payload;
   }
 
-  async deactivateWorkflow(id: number): Promise<N8nWorkflow> {
-    const response = await this.api.post<N8nApiResponse<N8nWorkflow>>(`/workflows/${id}/deactivate`);
-    return response.data.data;
+  async deactivateWorkflow(id: string | number): Promise<N8nWorkflow> {
+    const response = await this.api.post<N8nApiResponse<N8nWorkflow> | N8nWorkflow>(`/workflows/${id}/deactivate`);
+    const payload: any = response.data as any;
+    return (payload && typeof payload === 'object' && 'data' in payload) ? payload.data : payload;
   }
 
   async listCredentials(): Promise<N8nCredential[]> {
@@ -205,7 +269,7 @@ export class N8nClient {
   /**
    * Apply a batch of operations to a workflow atomically
    */
-  async applyOperations(workflowId: number, operations: PatchOperation[]): Promise<ApplyOpsResponse> {
+  async applyOperations(workflowId: string | number, operations: PatchOperation[]): Promise<ApplyOpsResponse> {
     try {
       // Get the current workflow
       const currentWorkflow = await this.getWorkflow(workflowId);
@@ -277,7 +341,7 @@ export class N8nClient {
   }
 
   private async performWorkflowUpdate(
-    workflowId: number,
+    workflowId: string | number,
     operation: (workflow: N8nWorkflow) => void,
     maxRetries: number = 3,
   ): Promise<void> {
@@ -395,22 +459,22 @@ export class N8nClient {
     return response.data.data;
   }
 
-  async transferWorkflow(id: number, transferData: TransferRequest): Promise<TransferResponse> {
+  async transferWorkflow(id: string | number, transferData: TransferRequest): Promise<TransferResponse> {
     const response = await this.api.put<N8nApiResponse<TransferResponse>>(`/workflows/${id}/transfer`, transferData);
     return response.data.data;
   }
 
-  async transferCredential(id: number, transferData: TransferRequest): Promise<TransferResponse> {
+  async transferCredential(id: string | number, transferData: TransferRequest): Promise<TransferResponse> {
     const response = await this.api.put<N8nApiResponse<TransferResponse>>(`/credentials/${id}/transfer`, transferData);
     return response.data.data;
   }
 
-  async listWorkflowTags(workflowId: number): Promise<N8nTag[]> {
+  async listWorkflowTags(workflowId: string | number): Promise<N8nTag[]> {
     const response = await this.api.get<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`);
     return response.data.data;
   }
 
-  async setWorkflowTags(workflowId: number, tagIds: (string | number)[]): Promise<N8nTag[]> {
+  async setWorkflowTags(workflowId: string | number, tagIds: (string | number)[]): Promise<N8nTag[]> {
     const response = await this.api.put<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`, { tagIds });
     return response.data.data;
   }
@@ -425,7 +489,7 @@ export class N8nClient {
     return response.data;
   }
 
-  async getTag(id: number): Promise<N8nTag> {
+  async getTag(id: string | number): Promise<N8nTag> {
     const response = await this.api.get<N8nApiResponse<N8nTag>>(`/tags/${id}`);
     return response.data.data;
   }
@@ -435,12 +499,12 @@ export class N8nClient {
     return response.data.data;
   }
 
-  async updateTag(id: number, tag: Partial<Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>>): Promise<N8nTag> {
+  async updateTag(id: string | number, tag: Partial<Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>>): Promise<N8nTag> {
     const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, tag);
     return response.data.data;
   }
 
-  async deleteTag(id: number): Promise<void> {
+  async deleteTag(id: string | number): Promise<void> {
     await this.api.delete(`/tags/${id}`);
   }
 
@@ -488,7 +552,7 @@ export class N8nClient {
     return { success: true };
   }
 
-  async getWebhookUrls(workflowId: number, nodeId: string): Promise<N8nWebhookUrls> {
+  async getWebhookUrls(workflowId: string | number, nodeId: string): Promise<N8nWebhookUrls> {
     const workflow = await this.getWorkflow(workflowId);
     const webhookNode = workflow.nodes.find((node) => node.id === nodeId);
     if (!webhookNode) throw new Error(`Node with ID '${nodeId}' not found in workflow ${workflowId}`);
@@ -502,7 +566,7 @@ export class N8nClient {
     return { testUrl, productionUrl };
   }
 
-  async runOnce(workflowId: number, input?: any): Promise<N8nExecutionResponse> {
+  async runOnce(workflowId: string | number, input?: any): Promise<N8nExecutionResponse> {
     try {
       const workflow = await this.getWorkflow(workflowId);
       const hasTriggerNodes = workflow.nodes.some(

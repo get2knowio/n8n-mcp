@@ -132,8 +132,9 @@ describe('N8nMcpServer - Execution Tools', () => {
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
       const responseData = JSON.parse(result.content[0].text);
-      expect(responseData.data).toEqual([mockExecution]);
-      expect(responseData.nextCursor).toBe('cursor_123');
+      expect(responseData.ok).toBe(true);
+      expect(responseData.data.data).toEqual([mockExecution]);
+      expect(responseData.data.nextCursor).toBe('cursor_123');
     });
 
     it('should handle list_executions without arguments', async () => {
@@ -159,7 +160,8 @@ describe('N8nMcpServer - Execution Tools', () => {
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
       const responseData = JSON.parse(result.content[0].text);
-      expect(responseData.data).toEqual([mockExecution]);
+      expect(responseData.ok).toBe(true);
+      expect(responseData.data.data).toEqual([mockExecution]);
     });
 
     it('should handle list_executions API errors', async () => {
@@ -181,7 +183,9 @@ describe('N8nMcpServer - Execution Tools', () => {
 
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
-      expect(result.content[0].text).toBe('Error: API Error');
+      const errorPayload = JSON.parse(result.content[0].text);
+      expect(errorPayload.ok).toBe(false);
+      expect(errorPayload.error.message).toBe('API Error');
     });
   });
 
@@ -207,7 +211,8 @@ describe('N8nMcpServer - Execution Tools', () => {
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
       const responseData = JSON.parse(result.content[0].text);
-      expect(responseData).toEqual(mockExecution);
+      expect(responseData.ok).toBe(true);
+      expect(responseData.data).toEqual(mockExecution);
     });
 
     it('should handle get_execution not found error', async () => {
@@ -230,7 +235,9 @@ describe('N8nMcpServer - Execution Tools', () => {
       expect(mockN8nClientInstance.getExecution).toHaveBeenCalledWith('nonexistent');
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
-      expect(result.content[0].text).toBe('Error: Execution not found');
+      const errorPayload2 = JSON.parse(result.content[0].text);
+      expect(errorPayload2.ok).toBe(false);
+      expect(errorPayload2.error.message).toBe('Execution not found');
     });
   });
 
@@ -255,7 +262,9 @@ describe('N8nMcpServer - Execution Tools', () => {
       expect(mockN8nClientInstance.deleteExecution).toHaveBeenCalledWith('exec-123');
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
-      expect(result.content[0].text).toBe('Execution exec-123 deleted successfully');
+      const delPayload = JSON.parse(result.content[0].text);
+      expect(delPayload.ok).toBe(true);
+      expect(delPayload.data.id).toBe('exec-123');
     });
 
     it('should handle delete_execution errors', async () => {
@@ -278,7 +287,9 @@ describe('N8nMcpServer - Execution Tools', () => {
       expect(mockN8nClientInstance.deleteExecution).toHaveBeenCalledWith('exec-123');
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
-      expect(result.content[0].text).toBe('Error: Deletion failed');
+      const delErr = JSON.parse(result.content[0].text);
+      expect(delErr.ok).toBe(false);
+      expect(delErr.error.message).toBe('Deletion failed');
     });
   });
 

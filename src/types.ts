@@ -1,5 +1,5 @@
 export interface N8nWorkflow {
-  id?: number;
+  id?: string | number;
   name: string;
   nodes: N8nNode[];
   connections: N8nConnections;
@@ -77,7 +77,7 @@ export interface TransferRequest {
 }
 
 export interface TransferResponse {
-  id: number;
+  id: string | number;
   projectId?: string;
   newOwnerId?: string;
 }
@@ -186,7 +186,7 @@ export interface ValidationResult {
 }
 // Types for granular node operations (graph mutations)
 export interface CreateNodeRequest {
-  workflowId: number;
+  workflowId: string | number;
   type: string;
   name?: string;
   params?: Record<string, any>;
@@ -199,7 +199,7 @@ export interface CreateNodeResponse {
 }
 
 export interface UpdateNodeRequest {
-  workflowId: number;
+  workflowId: string | number;
   nodeId: string;
   params?: Record<string, any>;
   credentials?: Record<string, string>;
@@ -212,7 +212,7 @@ export interface UpdateNodeResponse {
 }
 
 export interface ConnectNodesRequest {
-  workflowId: number;
+  workflowId: string | number;
   from: {
     nodeId: string;
     outputIndex?: number;
@@ -228,7 +228,7 @@ export interface ConnectNodesResponse {
 }
 
 export interface DeleteNodeRequest {
-  workflowId: number;
+  workflowId: string | number;
   nodeId: string;
 }
 
@@ -237,7 +237,7 @@ export interface DeleteNodeResponse {
 }
 
 export interface SetNodePositionRequest {
-  workflowId: number;
+  workflowId: string | number;
   nodeId: string;
   x: number;
   y: number;
@@ -399,7 +399,7 @@ export type PatchOperation =
   | RemoveTagOperation;
 
 export interface ApplyOpsRequest {
-  workflowId: number;
+  workflowId: string | number;
   ops: PatchOperation[];
 }
 
