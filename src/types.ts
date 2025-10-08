@@ -52,7 +52,7 @@ export interface N8nWorkflowsListResponse {
 }
 
 export interface N8nCredential {
-  id?: number;
+  id?: string | number;
   name: string;
   type: string;
   data?: Record<string, any>;
@@ -414,4 +414,20 @@ export interface ApplyOpsResponse {
   success: boolean;
   workflow?: N8nWorkflow;
   errors?: OperationError[];
+}
+
+// Enhanced error details for multi-endpoint fallback operations
+export interface EndpointAttempt {
+  endpoint: string;
+  method: string;
+  status: number;
+  message?: string;
+}
+
+export interface FallbackOperationResult {
+  success: boolean;
+  data?: any;
+  attemptedEndpoints?: EndpointAttempt[];
+  successfulEndpoint?: string;
+  hint?: string;
 }
