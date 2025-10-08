@@ -63,47 +63,52 @@ export class N8nClient {
       this.api.defaults.headers.common['Authorization'] = `Basic ${auth}`;
     }
 
-    // Axios interceptors for debug tracing
-    if (getLogLevel() === 'debug') {
-      this.api.interceptors.request.use((req) => {
-        (req as any).__start = Date.now();
-        logger.debug('HTTP request', {
-          method: req.method,
-          url: req.baseURL ? `${req.baseURL}${req.url}` : req.url,
-          headers: redact(req.headers as any),
-          params: redact(req.params as any),
-        });
-        return req;
-      });
-
-      this.api.interceptors.response.use(
-        (res) => {
-          const start = (res.config as any).__start || Date.now();
-          const durationMs = Date.now() - start;
-          logger.debug('HTTP response', {
-            status: res.status,
-            url: res.config.baseURL ? `${res.config.baseURL}${res.config.url}` : res.config.url,
-            durationMs,
+    // Axios interceptors for debug tracing (guard against mocked axios without interceptors)
+    try {
+      const interceptors: any = (this.api as any).interceptors;
+      if (getLogLevel() === 'debug' && interceptors?.request?.use && interceptors?.response?.use) {
+        interceptors.request.use((req: any) => {
+          req.__start = Date.now();
+          logger.debug('HTTP request', {
+            method: req.method,
+            url: req.baseURL ? `${req.baseURL}${req.url}` : req.url,
+            headers: redact(req.headers as any),
+            params: redact(req.params as any),
           });
-          return res;
-        },
-        (err) => {
-          try {
-            const cfg = err?.config || {};
-            const start = (cfg as any).__start || Date.now();
+          return req;
+        });
+
+        interceptors.response.use(
+          (res: any) => {
+            const start = res.config?.__start || Date.now();
             const durationMs = Date.now() - start;
-            logger.error('HTTP error', {
-              url: cfg.baseURL ? `${cfg.baseURL}${cfg.url}` : cfg.url,
-              method: cfg.method,
-              status: err?.response?.status,
-              data: redact(err?.response?.data),
+            logger.debug('HTTP response', {
+              status: res.status,
+              url: res.config?.baseURL ? `${res.config.baseURL}${res.config.url}` : res.config?.url,
               durationMs,
-              message: err?.message,
             });
-          } catch {}
-          return Promise.reject(err);
-        },
-      );
+            return res;
+          },
+          (err: any) => {
+            try {
+              const cfg = err?.config || {};
+              const start = (cfg as any).__start || Date.now();
+              const durationMs = Date.now() - start;
+              logger.error('HTTP error', {
+                url: cfg.baseURL ? `${cfg.baseURL}${cfg.url}` : cfg.url,
+                method: cfg.method,
+                status: err?.response?.status,
+                data: redact(err?.response?.data),
+                durationMs,
+                message: err?.message,
+              });
+            } catch {}
+            return Promise.reject(err);
+          },
+        );
+      }
+    } catch {
+      // ignore interceptor setup errors in non-debug or mocked environments
     }
   }
 
