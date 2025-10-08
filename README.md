@@ -41,6 +41,41 @@ An MCP (Model Context Protocol) server for managing n8n workflows. This server a
 - **Delete Variable**: Remove variables
 - **CLI & MCP Support**: Full access via both command line and MCP tools
 
+### n8n Endpoint Compatibility & Fallback
+
+This MCP server supports multiple n8n API versions and automatically falls back between endpoints for maximum compatibility:
+
+#### ID Support
+- **UUID Support**: All tools accept both numeric IDs (e.g., `1`, `2`) and string UUIDs (e.g., `"tag-uuid-123"`, `"workflow-abc-def"`)
+- Works with n8n Cloud (UUID-based) and self-hosted instances (numeric or UUID-based)
+
+#### Tag Operations Fallback Strategy
+**Listing Tags:**
+1. Primary: `GET /api/v1/tags`
+2. Fallback: `GET /rest/tags` (when v1 returns 404/401)
+
+**Updating Tag Color:**
+1. Try: `PATCH /rest/tags/{id}` with `{ color: "#ff0000" }`
+2. Fallback: `PUT /api/v1/tags/{id}` with `{ name, color }`
+3. If both fail: Returns helpful error message explaining color may need to be set via UI
+
+**Setting Workflow Tags:**
+1. Try: `PATCH /rest/workflows/{id}` with `{ tags: ["tag1", "tag2"] }` (tag names)
+2. Try: `PATCH /rest/workflows/{id}` with `{ tags: [{ id: "uuid1" }, { id: "uuid2" }] }` (tag IDs as objects)
+3. Fallback: `PUT /api/v1/workflows/{id}/tags` with `{ tagIds: ["uuid1", "uuid2"] }`
+4. If all fail: Returns detailed error with attempted endpoints and status codes
+
+This multi-endpoint approach ensures the MCP server works across:
+- n8n Cloud (typically `/api/v1` endpoints)
+- Self-hosted n8n v1.x+ (typically `/api/v1` endpoints)
+- Older self-hosted versions (typically `/rest` endpoints)
+
+#### Error Messages
+When operations fail due to endpoint limitations, error responses include:
+- List of attempted endpoints with HTTP methods and status codes
+- Helpful hints (e.g., "Tag color may need to be set via the n8n web UI")
+- Suggestions for alternative approaches
+
 ## Installation
 
 ### From npm (recommended)
