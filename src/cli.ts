@@ -14,12 +14,14 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
       break;
     }
     case 'get': {
-      const getId = parseInt(args[0]);
-      if (!getId) {
+      const tagId = args[0];
+      if (!tagId) {
         printJson(errorPayload('Tag ID required', 'BAD_INPUT'), fmt);
         process.exit(1);
       }
-      const tag = await client.getTag(getId);
+      // Support both numeric and string UUIDs
+      const id = /^\d+$/.test(tagId) ? parseInt(tagId) : tagId;
+      const tag = await client.getTag(id);
       printJson(success(tag), fmt);
       break;
     }
@@ -35,11 +37,14 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
       break;
     }
     case 'update': {
-      const updateId = parseInt(args[0]);
-      if (!updateId) {
+      const tagId = args[0];
+      if (!tagId) {
         printJson(errorPayload('Tag ID required', 'BAD_INPUT'), fmt);
         process.exit(1);
       }
+      // Support both numeric and string UUIDs
+      const id = /^\d+$/.test(tagId) ? parseInt(tagId) : tagId;
+      
       const updateData: any = {};
       if (args[1]) updateData.name = args[1];
       if (args[2]) updateData.color = args[2];
@@ -49,18 +54,20 @@ async function handleTagCommands(client: N8nClient, command: string, args: strin
         process.exit(1);
       }
 
-      const updated = await client.updateTag(updateId, updateData);
+      const updated = await client.updateTag(id, updateData);
       printJson(success(updated), fmt);
       break;
     }
     case 'delete': {
-      const deleteId = parseInt(args[0]);
-      if (!deleteId) {
+      const tagId = args[0];
+      if (!tagId) {
         printJson(errorPayload('Tag ID required', 'BAD_INPUT'), fmt);
         process.exit(1);
       }
-      await client.deleteTag(deleteId);
-      printJson(success({ id: deleteId }), fmt);
+      // Support both numeric and string UUIDs
+      const id = /^\d+$/.test(tagId) ? parseInt(tagId) : tagId;
+      await client.deleteTag(id);
+      printJson(success({ id }), fmt);
       break;
     }
     default: {
