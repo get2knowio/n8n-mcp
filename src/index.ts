@@ -23,6 +23,10 @@ import { success as jsonSuccess, error as jsonError } from './output.js';
 export class N8nMcpServer {
   private server: Server;
   private n8nClient!: N8nClient;
+  // In-memory alias mapping to bridge numeric tool IDs with n8n string IDs
+  private workflowIdAliasToString: Map<number, string> = new Map();
+  private workflowIdStringToAlias: Map<string, number> = new Map();
+  private nextWorkflowAliasId = 1;
 
   constructor() {
     this.server = new Server({
@@ -333,39 +337,97 @@ export class N8nMcpServer {
     });
   }
 
+  // --- ID alias helpers ----------------------------------------------------
+
+  /**
+   * Register a workflow's real (string) ID and return its stable numeric alias for this process.
+   */
+  private registerWorkflowAlias(realId: string | number | undefined): number | undefined {
+    if (realId == null) return undefined;
+    const key = String(realId);
+    if (this.workflowIdStringToAlias.has(key)) return this.workflowIdStringToAlias.get(key)!;
+    const alias = this.nextWorkflowAliasId++;
+    this.workflowIdStringToAlias.set(key, alias);
+    this.workflowIdAliasToString.set(alias, key);
+    return alias;
+  }
+
+  /**
+   * Resolve an incoming id/workflowId which may be a numeric alias into the real string ID.
+   * If no alias mapping exists, return the original value (supports numeric n8n instances/mocks).
+   */
+  private resolveWorkflowId(id: string | number): string | number {
+    if (typeof id === 'number') {
+      const real = this.workflowIdAliasToString.get(id);
+      return real ?? id;
+    }
+    return id;
+  }
+
+  /**
+   * Attach numericId alias to workflow(s) for client convenience.
+   */
+  private withAlias<T extends N8nWorkflow | N8nWorkflow[]>(payload: T): T {
+    const attach = (wf: N8nWorkflow) => {
+      const alias = this.registerWorkflowAlias(wf.id as any);
+      if (alias != null) {
+        // non-destructive augmentation
+        (wf as any).numericId = alias;
+      }
+    };
+    if (Array.isArray(payload)) {
+      payload.forEach(attach);
+    } else {
+      attach(payload as N8nWorkflow);
+    }
+    return payload;
+  }
+
   private async handleListWorkflows(args?: { limit?: number; cursor?: string }) {
     const workflows = await this.n8nClient.listWorkflows(args?.limit, args?.cursor);
+    // attach aliases for each workflow in the list
+    this.withAlias(workflows.data);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(workflows), null, 2) }] };
   }
 
   private async handleGetWorkflow(args: { id: string | number }) {
-    const workflow = await this.n8nClient.getWorkflow(args.id);
+    const id = this.resolveWorkflowId(args.id);
+    const workflow = await this.n8nClient.getWorkflow(id);
+    this.withAlias(workflow);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(workflow), null, 2) }] };
   }
 
   private async handleCreateWorkflow(args: Omit<N8nWorkflow, 'id'>) {
     const workflow = await this.n8nClient.createWorkflow(args);
+    this.withAlias(workflow);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(workflow), null, 2) }] };
   }
 
   private async handleUpdateWorkflow(args: { id: string | number; ifMatch?: string } & Partial<N8nWorkflow>) {
     const { id, ifMatch, ...updateData } = args;
-    const workflow = await this.n8nClient.updateWorkflow(id, updateData, ifMatch);
+    const resolvedId = this.resolveWorkflowId(id);
+    const workflow = await this.n8nClient.updateWorkflow(resolvedId, updateData, ifMatch);
+    this.withAlias(workflow);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(workflow), null, 2) }] };
   }
 
   private async handleDeleteWorkflow(args: { id: string | number }) {
-    await this.n8nClient.deleteWorkflow(args.id);
+    const id = this.resolveWorkflowId(args.id);
+    await this.n8nClient.deleteWorkflow(id);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess({ id: args.id }), null, 2) }] };
   }
 
   private async handleActivateWorkflow(args: { id: string | number }) {
-    const workflow = await this.n8nClient.activateWorkflow(args.id);
+    const id = this.resolveWorkflowId(args.id);
+    const workflow = await this.n8nClient.activateWorkflow(id);
+    this.withAlias(workflow);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(workflow), null, 2) }] };
   }
 
   private async handleDeactivateWorkflow(args: { id: string | number }) {
-    const workflow = await this.n8nClient.deactivateWorkflow(args.id);
+    const id = this.resolveWorkflowId(args.id);
+    const workflow = await this.n8nClient.deactivateWorkflow(id);
+    this.withAlias(workflow);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(workflow), null, 2) }] };
   }
 
@@ -375,12 +437,14 @@ export class N8nMcpServer {
   }
 
   private async handleListWorkflowTags(args: { workflowId: string | number }) {
-    const tags = await this.n8nClient.listWorkflowTags(args.workflowId);
+    const workflowId = this.resolveWorkflowId(args.workflowId);
+    const tags = await this.n8nClient.listWorkflowTags(workflowId);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(tags), null, 2) }] };
   }
 
   private async handleSetWorkflowTags(args: { workflowId: string | number; tagIds: (string | number)[] }) {
-    const tags = await this.n8nClient.setWorkflowTags(args.workflowId, args.tagIds);
+    const workflowId = this.resolveWorkflowId(args.workflowId);
+    const tags = await this.n8nClient.setWorkflowTags(workflowId, args.tagIds);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(tags), null, 2) }] };
   }
 
@@ -432,12 +496,14 @@ export class N8nMcpServer {
   }
 
   private async handleWebhookUrls(args: { workflowId: string | number; nodeId: string }) {
-    const urls = await this.n8nClient.getWebhookUrls(args.workflowId, args.nodeId);
+    const workflowId = this.resolveWorkflowId(args.workflowId);
+    const urls = await this.n8nClient.getWebhookUrls(workflowId, args.nodeId);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(urls), null, 2) }] };
   }
 
   private async handleRunOnce(args: { workflowId: string | number; input?: any }) {
-    const execution = await this.n8nClient.runOnce(args.workflowId, args.input);
+    const workflowId = this.resolveWorkflowId(args.workflowId);
+    const execution = await this.n8nClient.runOnce(workflowId, args.input);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(execution), null, 2) }] };
   }
 
@@ -557,9 +623,11 @@ export class N8nMcpServer {
   }
 
   private async handleApplyOps(args: ApplyOpsRequest) {
-    const result = await this.n8nClient.applyOperations(args.workflowId, args.ops);
+    const workflowId = this.resolveWorkflowId(args.workflowId);
+    const result = await this.n8nClient.applyOperations(workflowId, args.ops);
     
     if (result.success) {
+      if (result.workflow) this.withAlias(result.workflow);
       return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result.workflow), null, 2) }] };
     } else {
       return { content: [{ type: 'text', text: JSON.stringify(jsonError('Operations failed', 'APPLY_OPS_FAILED', { errors: result.errors }), null, 2) }] };
