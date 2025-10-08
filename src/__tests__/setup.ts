@@ -9,8 +9,14 @@ jest.mock('axios', () => ({
         common: {},
       },
     },
+    // Minimal interceptor stubs so code can call .interceptors.request/response.use
+    interceptors: {
+      request: { use: jest.fn((onFulfilled) => onFulfilled) },
+      response: { use: jest.fn((onFulfilled, onRejected) => onFulfilled ?? onRejected) },
+    },
     get: jest.fn(),
     post: jest.fn(),
+    put: jest.fn(),
     patch: jest.fn(),
     delete: jest.fn(),
   })),
