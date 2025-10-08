@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  dev:
+    image: ghcr.io/get2knowio/devcontainer:latest
+    user: vscode
+    init: true
+    command: sleep infinity
+    working_dir: /workspaces/n8n-mcp
+    volumes:
+      - ..:/workspaces/n8n-mcp:cached
+    environment:
+      # Point tooling and smoke tests to local n8n by default
+      - N8N_BASE_URL=http://n8n:5678
+      # Default basic auth credentials to match n8n service below
+      - N8N_USERNAME=test
+      - N8N_PASSWORD=test
+      # Helpful debug flags
+      - MCP_DEBUG=debug
+      - MCP_ENABLE_SOURCE_MAPS=1
+    depends_on:
+      - n8n
+    networks:
+      - devnet
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      # Basic auth for editor/API; matches dev service env
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=test
+      - N8N_BASIC_AUTH_PASSWORD=test
+      # Reduce noise/telemetry for local dev
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_DISABLED=true
+      - N8N_ENABLE_TELEMETRY=false
+      - N8N_SECURE_COOKIE=false
+    ports:
+      # Optional: expose to host for convenience
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - devnet
+
+volumes:
+  n8n_data:
+
+networks:
+  devnet:
+

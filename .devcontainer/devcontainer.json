@@ -1,6 +1,10 @@
 {
-  "name": "get2know.io devcontainer",
-  "image": "ghcr.io/get2knowio/devcontainer:latest",
+  "name": "n8n-mcp devcontainer",
+  "dockerComposeFile": [
+    "./docker-compose.yml"
+  ],
+  "service": "dev",
+  "workspaceFolder": "/workspaces/n8n-mcp",
   "remoteUser": "vscode",
   "features": {},
   "postCreateCommand": "npm install",
@@ -18,6 +22,5 @@
         "pflannery.vscode-versionlens"
       ]
     }
-  },
-  "initializeCommand": "docker pull ghcr.io/get2knowio/devcontainer:latest"
+  }
 }
