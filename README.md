@@ -56,6 +56,18 @@ npm install
 // See CONTRIBUTING.md for the full local dev workflow and build steps
 ```
 
+### Devcontainer (Docker Compose)
+
+This repo includes a VS Code devcontainer powered by Docker Compose that launches:
+- `dev`: your development container (this repo mounted at `/workspaces/n8n-mcp`)
+- `n8n`: a local n8n instance on the same Docker network, reachable via `http://n8n:5678`
+
+Open the folder in VS Code and “Reopen in Container”. The dev container sets these env vars so the CLI and smoke tests talk to the sidecar by default:
+- `N8N_BASE_URL=http://n8n:5678`
+- `N8N_USERNAME=test`, `N8N_PASSWORD=test`
+
+You can still override these with a local `.env` if needed.
+
 ## Configuration
 
 Set the following environment variables:

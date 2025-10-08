@@ -165,6 +165,11 @@ Prerequisites:
   - `N8N_BASE_URL` (e.g. http://localhost:5678)
   - Either `N8N_API_KEY` (recommended) OR `N8N_USERNAME` and `N8N_PASSWORD`
 
+Devcontainer note:
+- When using the provided Docker Compose devcontainer, the smoke tests default to the sidecar n8n at `http://n8n:5678`.
+- Basic auth defaults are set in the devcontainer: `N8N_USERNAME=test`, `N8N_PASSWORD=test`.
+- You can still override via a local `.env` if needed.
+
 Run sequence:
 
 1) Build the project (emits dist with source maps):
