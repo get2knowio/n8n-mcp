@@ -530,13 +530,14 @@ export class N8nClient {
     }
     
     // Strategy 1: PATCH /rest/workflows/{id} with tag names
-    if (tagNames.length > 0) {
+    // Only run if ALL tagIds resolved to names to avoid dropping tags
+    if (tagNames.length > 0 && tagNames.length === tagIds.length) {
       const patchRestNames = await this.requestRest('PATCH', `/rest/workflows/${workflowId}`, { tags: tagNames });
       attempts.push({
         endpoint: `/rest/workflows/${workflowId}`,
         method: 'PATCH (names)',
         status: patchRestNames.status,
-        message: patchRestNames.error?.message
+        message: String(patchRestNames.error?.message ?? patchRestNames.error ?? '')
       });
       
       if (patchRestNames.ok) {
@@ -558,7 +559,7 @@ export class N8nClient {
       endpoint: `/rest/workflows/${workflowId}`,
       method: 'PATCH (id objects)',
       status: patchRestIds.status,
-      message: patchRestIds.error?.message
+      message: String(patchRestIds.error?.message ?? patchRestIds.error ?? '')
     });
     
     if (patchRestIds.ok) {
@@ -643,7 +644,7 @@ export class N8nClient {
       endpoint: `/rest/tags/${id}`,
       method: 'PATCH',
       status: patchRest.status,
-      message: patchRest.error?.message
+      message: String(patchRest.error?.message ?? patchRest.error ?? '')
     });
     
     if (patchRest.ok && patchRest.data) {
@@ -652,13 +653,33 @@ export class N8nClient {
       return result as N8nTag;
     }
     
-    // Strategy 2: Try PUT on /api/v1/tags/{id} (current default)
+    // Strategy 2: Try PUT on /api/v1/tags/{id}
+    // PUT typically requires a full payload, so if the incoming tag is partial, fetch and merge
     try {
-      const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, tag);
+      let fullPayload = tag;
+      
+      // Check if we need to fetch the existing tag for a merge
+      // If name is missing, we need to fetch the existing tag
+      if (!tag.name) {
+        try {
+          const existingTag = await this.getTag(id);
+          // Merge existing tag with provided updates
+          fullPayload = {
+            name: existingTag.name,
+            ...tag
+          };
+        } catch (fetchError) {
+          // If we can't fetch, try the PUT anyway with what we have
+          logger.debug('Could not fetch existing tag for merge', { id, error: fetchError });
+        }
+      }
+      
+      const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, fullPayload);
       attempts.push({
         endpoint: `/api/v1/tags/${id}`,
         method: 'PUT',
         status: response.status,
+        message: undefined
       });
       return response.data.data;
     } catch (error: any) {
@@ -666,7 +687,7 @@ export class N8nClient {
         endpoint: `/api/v1/tags/${id}`,
         method: 'PUT',
         status: error.response?.status || 0,
-        message: error.response?.data?.message || error.message
+        message: String(error.response?.data?.message ?? error.message ?? error ?? '')
       });
       
       // If updating color specifically and all endpoints failed, provide helpful message
