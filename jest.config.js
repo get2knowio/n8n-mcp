@@ -6,6 +6,7 @@ export default {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
+    '!src/main.ts',
     '!src/cli.ts',
     '!src/__tests__/**',
   ],
