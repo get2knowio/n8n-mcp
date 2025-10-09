@@ -35,7 +35,9 @@ import {
   ApplyOpsResponse,
   N8nNodeType,
   N8nNodeExample,
-  ValidationResult
+  ValidationResult,
+  EndpointAttempt,
+  FallbackOperationResult
 } from './types.js';
 import { WorkflowOperationsProcessor } from './operations.js';
 import { getNodeTypes, getNodeType, getNodeExamples } from './node-registry.js';
@@ -109,6 +111,40 @@ export class N8nClient {
       }
     } catch {
       // ignore interceptor setup errors in non-debug or mocked environments
+    }
+  }
+
+  /**
+   * Make a request to a REST endpoint (outside /api/v1)
+   * Used for fallback to /rest/* endpoints
+   */
+  private async requestRest<T = any>(method: string, path: string, data?: any): Promise<{ ok: boolean; status: number; data?: T; error?: any }> {
+    try {
+      const url = `${this.baseUrl}${path}`;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      
+      // Copy auth headers from the main API instance
+      if (this.api.defaults.headers.common['X-N8N-API-KEY']) {
+        headers['X-N8N-API-KEY'] = this.api.defaults.headers.common['X-N8N-API-KEY'] as string;
+      }
+      if (this.api.defaults.headers.common['Authorization']) {
+        headers['Authorization'] = this.api.defaults.headers.common['Authorization'] as string;
+      }
+
+      const response = await axios.request<T>({
+        method,
+        url,
+        headers,
+        data,
+      });
+      
+      return { ok: true, status: response.status, data: response.data };
+    } catch (error: any) {
+      return {
+        ok: false,
+        status: error.response?.status || 0,
+        error: error.response?.data || error.message,
+      };
     }
   }
 
@@ -480,8 +516,84 @@ export class N8nClient {
   }
 
   async setWorkflowTags(workflowId: string | number, tagIds: (string | number)[]): Promise<N8nTag[]> {
-    const response = await this.api.put<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`, { tagIds });
-    return response.data.data;
+    const attempts: EndpointAttempt[] = [];
+    
+    // Get tag names for fallback strategies
+    let tagNames: string[] = [];
+    try {
+      const allTags = await this.listTags();
+      tagNames = tagIds
+        .map(id => allTags.data.find(t => t.id == id)?.name)
+        .filter((name): name is string => !!name);
+    } catch (e) {
+      // If we can't get tag names, we'll skip name-based strategies
+    }
+    
+    // Strategy 1: PATCH /rest/workflows/{id} with tag names
+    // Only run if ALL tagIds resolved to names to avoid dropping tags
+    if (tagNames.length > 0 && tagNames.length === tagIds.length) {
+      const patchRestNames = await this.requestRest('PATCH', `/rest/workflows/${workflowId}`, { tags: tagNames });
+      attempts.push({
+        endpoint: `/rest/workflows/${workflowId}`,
+        method: 'PATCH (names)',
+        status: patchRestNames.status,
+        message: String(patchRestNames.error?.message ?? patchRestNames.error ?? '')
+      });
+      
+      if (patchRestNames.ok) {
+        // Fetch and return the updated tags
+        try {
+          return await this.listWorkflowTags(workflowId);
+        } catch (e) {
+          // If list fails, return empty array but log success
+          logger.debug('Tags set successfully but unable to list them', { workflowId });
+          return [];
+        }
+      }
+    }
+    
+    // Strategy 2: PATCH /rest/workflows/{id} with tag IDs as objects
+    const tagIdObjects = tagIds.map(id => ({ id }));
+    const patchRestIds = await this.requestRest('PATCH', `/rest/workflows/${workflowId}`, { tags: tagIdObjects });
+    attempts.push({
+      endpoint: `/rest/workflows/${workflowId}`,
+      method: 'PATCH (id objects)',
+      status: patchRestIds.status,
+      message: String(patchRestIds.error?.message ?? patchRestIds.error ?? '')
+    });
+    
+    if (patchRestIds.ok) {
+      try {
+        return await this.listWorkflowTags(workflowId);
+      } catch (e) {
+        logger.debug('Tags set successfully but unable to list them', { workflowId });
+        return [];
+      }
+    }
+    
+    // Strategy 3: PUT /api/v1/workflows/{id}/tags with tagIds (current default)
+    try {
+      const response = await this.api.put<N8nApiResponse<N8nTag[]>>(`/workflows/${workflowId}/tags`, { tagIds });
+      attempts.push({
+        endpoint: `/api/v1/workflows/${workflowId}/tags`,
+        method: 'PUT',
+        status: response.status,
+      });
+      return response.data.data;
+    } catch (error: any) {
+      attempts.push({
+        endpoint: `/api/v1/workflows/${workflowId}/tags`,
+        method: 'PUT',
+        status: error.response?.status || 0,
+        message: error.response?.data?.message || error.message
+      });
+      
+      // All strategies failed, throw with details
+      const errorMsg = `Unable to set workflow tags. Attempted endpoints: ${attempts.map(a => `${a.method} ${a.endpoint} (${a.status})`).join(', ')}`;
+      const err = new Error(errorMsg);
+      (err as any).attempts = attempts;
+      throw err;
+    }
   }
 
   async listTags(limit?: number, cursor?: string): Promise<N8nTagsListResponse> {
@@ -490,8 +602,27 @@ export class N8nClient {
     if (cursor) params.append('cursor', cursor);
     const queryString = params.toString();
     const url = queryString ? `/tags?${queryString}` : '/tags';
-    const response = await this.api.get<N8nTagsListResponse>(url);
-    return response.data;
+    
+    try {
+      const response = await this.api.get<N8nTagsListResponse>(url);
+      return response.data;
+    } catch (error: any) {
+      // Fallback to /rest/tags if /api/v1/tags fails
+      if (error.response?.status === 404 || error.response?.status === 401) {
+        const restPath = queryString ? `/rest/tags?${queryString}` : '/rest/tags';
+        const restResponse = await this.requestRest<N8nTagsListResponse>('GET', restPath);
+        
+        if (restResponse.ok && restResponse.data) {
+          // Normalize response - /rest might return array directly or { data: [] }
+          const data = restResponse.data;
+          if (Array.isArray(data)) {
+            return { data, nextCursor: undefined };
+          }
+          return data;
+        }
+      }
+      throw error;
+    }
   }
 
   async getTag(id: string | number): Promise<N8nTag> {
@@ -505,8 +636,70 @@ export class N8nClient {
   }
 
   async updateTag(id: string | number, tag: Partial<Omit<N8nTag, 'id' | 'createdAt' | 'updatedAt'>>): Promise<N8nTag> {
-    const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, tag);
-    return response.data.data;
+    const attempts: EndpointAttempt[] = [];
+    
+    // Strategy 1: Try PATCH on /rest/tags/{id}
+    const patchRest = await this.requestRest('PATCH', `/rest/tags/${id}`, tag);
+    attempts.push({
+      endpoint: `/rest/tags/${id}`,
+      method: 'PATCH',
+      status: patchRest.status,
+      message: String(patchRest.error?.message ?? patchRest.error ?? '')
+    });
+    
+    if (patchRest.ok && patchRest.data) {
+      // Unwrap response if needed
+      const result = (patchRest.data as any)?.data || patchRest.data;
+      return result as N8nTag;
+    }
+    
+    // Strategy 2: Try PUT on /api/v1/tags/{id}
+    // PUT typically requires a full payload, so if the incoming tag is partial, fetch and merge
+    try {
+      let fullPayload = tag;
+      
+      // Check if we need to fetch the existing tag for a merge
+      // If name is missing, we need to fetch the existing tag
+      if (!tag.name) {
+        try {
+          const existingTag = await this.getTag(id);
+          // Merge existing tag with provided updates
+          fullPayload = {
+            name: existingTag.name,
+            ...tag
+          };
+        } catch (fetchError) {
+          // If we can't fetch, try the PUT anyway with what we have
+          logger.debug('Could not fetch existing tag for merge', { id, error: fetchError });
+        }
+      }
+      
+      const response = await this.api.put<N8nApiResponse<N8nTag>>(`/tags/${id}`, fullPayload);
+      attempts.push({
+        endpoint: `/api/v1/tags/${id}`,
+        method: 'PUT',
+        status: response.status,
+        message: undefined
+      });
+      return response.data.data;
+    } catch (error: any) {
+      attempts.push({
+        endpoint: `/api/v1/tags/${id}`,
+        method: 'PUT',
+        status: error.response?.status || 0,
+        message: String(error.response?.data?.message ?? error.message ?? error ?? '')
+      });
+      
+      // If updating color specifically and all endpoints failed, provide helpful message
+      if (tag.color && !tag.name) {
+        const errorMsg = `Unable to update tag color. Attempted endpoints: ${attempts.map(a => `${a.method} ${a.endpoint} (${a.status})`).join(', ')}. Tag color may need to be set via the n8n UI for this instance.`;
+        const err = new Error(errorMsg);
+        (err as any).attempts = attempts;
+        throw err;
+      }
+      
+      throw error;
+    }
   }
 
   async deleteTag(id: string | number): Promise<void> {
