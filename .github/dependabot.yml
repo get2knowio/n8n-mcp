@@ -8,6 +8,13 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
+    # Supply-chain cooldown: hold newly published versions for 7 days so a
+    # compromised release can be detected/yanked before it's proposed. The
+    # first-party @get2knowio/* scope is exempt.
+    cooldown:
+      default-days: 7
+      exclude:
+        - "@get2knowio/*"
     reviewers:
       - "pofallon"
     assignees:
@@ -27,6 +34,8 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     reviewers:
       - "pofallon"
     assignees:
