@@ -8,6 +8,9 @@
   "remoteUser": "vscode",
   "features": {},
   "postCreateCommand": "npm install",
+  "containerEnv": {
+    "GH_PAGER": ""
+  },
   "customizations": {
     "vscode": {
       "extensions": [
