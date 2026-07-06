@@ -334,6 +334,32 @@ Then set `command` to `npx` with args `["-y", "-p", "@get2knowio/n8n-mcp@<versio
 28. **update_tag** - Update existing tag
 29. **delete_tag** - Delete a tag
 
+#### Workflow Validation Tools
+
+30. **validate_workflow** - Validate a full workflow JSON before creating or updating it: structure (empty graph, duplicate node names, missing trigger, orphaned nodes), connections (dangling node references, array-of-arrays nesting), expressions (missing `=` prefix, unbalanced braces, unknown node references), and per-node config where the node catalog covers the type. Returns `{ valid, issues: [{ severity, code, message, node?, path? }] }`.
+31. **validate_connections** - Validate only the connections graph of a workflow.
+32. **validate_expressions** - Validate only the expressions embedded in a workflow's node parameters.
+
+#### Template Tools
+
+Backed by the public, unauthenticated [n8n template library](https://n8n.io/workflows) (`api.n8n.io`, overridable via `N8N_TEMPLATES_HOST`) — no n8n license or auth required.
+
+33. **search_templates** - Search for example workflows by `query`, `nodeTypes`, `category`, and `limit`.
+34. **get_template** - Fetch an importable workflow JSON for a template by ID.
+
+#### Execution Debugging Tools
+
+35. **list_error_executions** - List recent failed executions, optionally scoped to a `workflowId`.
+36. **retry_execution** - Retry a failed execution.
+37. **stop_execution** - Stop a running execution.
+
+The existing **get_execution** tool accepts an optional `includeData` flag to fetch per-node run data, trimmed to the failed node plus its immediate upstream neighbors (resolved from the workflow's connection graph) and truncated to avoid serializing huge payloads. Pass `onlyFailedNode: false` to include every node's run data instead.
+
+#### Capability Discovery Tools
+
+38. **discover_capabilities** - Report which resource groups this n8n instance/license supports (variables, projects, folders, source-control), so callers don't have to guess at community-vs-Enterprise gating.
+39. **health_check** - Cheap connectivity and authentication preflight against the configured n8n instance.
+
 #### Optimistic Concurrency for Updates
 
 The `update_workflow` tool supports optional optimistic concurrency control via the `ifMatch` parameter:

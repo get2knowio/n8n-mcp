@@ -554,6 +554,47 @@ async function main() {
         } catch (e) {
           console.log('[INFO] MCP tags not available or failed; skipping tag operations.');
         }
+        // Health check / capability discovery
+        const healthRes = await mcp.callTool('health_check', {});
+        const health = JSON.parse(healthRes?.result?.content?.[0]?.text || '{}');
+        if (!health?.ok || !health.data?.reachable) throw new Error('MCP health_check failed');
+        const discoverRes = await mcp.callTool('discover_capabilities', {});
+        const discover = JSON.parse(discoverRes?.result?.content?.[0]?.text || '{}');
+        if (!discover?.ok || !Array.isArray(discover.data?.capabilities)) throw new Error('MCP discover_capabilities failed');
+        // Whole-workflow validation (local, no API dependency). Uses a purpose-built
+        // minimal workflow rather than EXAMPLE_WORKFLOW: the example's Set node uses the
+        // legacy `values.string[]` shape, which the (intentionally small) node catalog
+        // doesn't model, so it would fail per-node validation despite deploying fine.
+        const validWorkflow = {
+          nodes: [
+            { id: 'webhook', name: 'Webhook', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 0], parameters: { httpMethod: 'GET', path: 'smoke-validate' } },
+            { id: 'no-op', name: 'No Op', type: 'n8n-nodes-base.noOp', typeVersion: 1, position: [200, 0], parameters: {} },
+          ],
+          connections: { Webhook: { main: [[{ node: 'No Op', type: 'main', index: 0 }]] } },
+        };
+        const validateOk = JSON.parse((await mcp.callTool('validate_workflow', validWorkflow))?.result?.content?.[0]?.text || '{}');
+        if (!validateOk?.ok || validateOk.data?.valid !== true) throw new Error('MCP validate_workflow (valid case) failed: ' + JSON.stringify(validateOk).slice(0, 300));
+        const brokenWorkflow = {
+          nodes: [{ id: 'a', name: 'A', type: 'n8n-nodes-base.noOp', typeVersion: 1, position: [0, 0], parameters: {} }],
+          connections: { A: { main: [{ node: 'Ghost', type: 'main', index: 0 }] } },
+        };
+        const validateBad = JSON.parse((await mcp.callTool('validate_workflow', brokenWorkflow))?.result?.content?.[0]?.text || '{}');
+        if (!validateBad?.ok || validateBad.data?.valid !== false) throw new Error('MCP validate_workflow (invalid case) failed: ' + JSON.stringify(validateBad).slice(0, 300));
+        // Templates (public, unauthenticated api.n8n.io)
+        try {
+          const searchRes = JSON.parse((await mcp.callTool('search_templates', { query: 'slack', limit: 1 }))?.result?.content?.[0]?.text || '{}');
+          if (!searchRes?.ok || !Array.isArray(searchRes.data?.workflows)) throw new Error('search_templates bad shape');
+          const templateId = searchRes.data.workflows?.[0]?.id;
+          if (templateId) {
+            const getRes = JSON.parse((await mcp.callTool('get_template', { id: templateId }))?.result?.content?.[0]?.text || '{}');
+            if (!getRes?.ok || !Array.isArray(getRes.data?.workflow?.nodes)) throw new Error('get_template bad shape');
+          }
+        } catch (e) {
+          console.log('[INFO] Template API (api.n8n.io) unreachable from this environment; skipping template steps.', String(e));
+        }
+        // Execution debugging tools (community-edition-safe; no executions required to exist)
+        const errorExecsRes = JSON.parse((await mcp.callTool('list_error_executions', { limit: 1 }))?.result?.content?.[0]?.text || '{}');
+        if (!errorExecsRes?.ok || !Array.isArray(errorExecsRes.data?.data)) throw new Error('MCP list_error_executions failed');
         // Delete workflow
         const delRes = await mcp.callTool('delete_workflow', { id: mcpWorkflowId });
         const del = JSON.parse(delRes?.result?.content?.[0]?.text || '{}');

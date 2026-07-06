@@ -37,7 +37,13 @@ import {
   N8nNodeExample,
   ValidationResult,
   EndpointAttempt,
-  FallbackOperationResult
+  FallbackOperationResult,
+  GetExecutionOptions,
+  GetExecutionResult,
+  TrimmedRunDataEntry,
+  CapabilityReport,
+  DiscoverCapabilitiesResult,
+  HealthCheckResult
 } from './types.js';
 import { WorkflowOperationsProcessor } from './operations.js';
 import { getNodeTypes, getNodeType, getNodeExamples } from './node-registry.js';
@@ -730,11 +736,12 @@ export class N8nClient {
     return { ok: true };
   }
 
-  async listExecutions(options?: { limit?: number; cursor?: string; workflowId?: string }): Promise<N8nExecutionsListResponse> {
+  async listExecutions(options?: { limit?: number; cursor?: string; workflowId?: string; status?: string }): Promise<N8nExecutionsListResponse> {
     const params = new URLSearchParams();
     if (options?.limit) params.append('limit', options.limit.toString());
     if (options?.cursor) params.append('cursor', options.cursor);
     if (options?.workflowId) params.append('workflowId', options.workflowId);
+    if (options?.status) params.append('status', options.status);
     const url = `/executions${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await this.api.get<N8nExecutionsListResponse>(url);
     return response.data;
@@ -745,9 +752,158 @@ export class N8nClient {
     return response.data.data;
   }
 
+  private trimRunDataEntry(node: string, entries: any): TrimmedRunDataEntry {
+    const MAX_PREVIEW_CHARS = 2000;
+    const last = Array.isArray(entries) ? entries[entries.length - 1] : entries;
+    const rawError = last?.error;
+    const error = rawError
+      ? { message: rawError.message, name: rawError.name, description: rawError.description }
+      : undefined;
+
+    const mainOutput = last?.data?.main?.[0];
+    let dataPreview: string | undefined;
+    let itemCount: number | undefined;
+    if (Array.isArray(mainOutput)) {
+      itemCount = mainOutput.length;
+      const serialized = JSON.stringify(mainOutput[0]?.json ?? mainOutput[0] ?? null);
+      dataPreview = serialized.length > MAX_PREVIEW_CHARS ? `${serialized.slice(0, MAX_PREVIEW_CHARS)}... (truncated)` : serialized;
+    }
+
+    return { node, status: error ? 'error' : 'success', error, itemCount, dataPreview };
+  }
+
+  /**
+   * Fetch an execution with an optional trimmed view of its run data, aimed at the
+   * author -> run -> fix debugging loop. `includeData` fetches the (potentially huge)
+   * per-node run data; by default we trim it down to the failed node plus its immediate
+   * upstream neighbors (resolved from the workflow's connection graph) and truncate any
+   * single node's output preview, to avoid serializing an entire large execution.
+   */
+  async getExecutionDetails(id: string, options: GetExecutionOptions = {}): Promise<GetExecutionResult> {
+    const params = new URLSearchParams();
+    if (options.includeData) params.append('includeData', 'true');
+    const url = `/executions/${id}${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await this.api.get<N8nApiResponse<N8nExecution>>(url);
+    const execution = response.data.data;
+
+    const topError = execution.data?.resultData?.error;
+    const lastNodeExecuted = execution.data?.resultData?.lastNodeExecuted;
+    const failedNodeName = (topError as any)?.node?.name || lastNodeExecuted;
+
+    const result: GetExecutionResult = {
+      id: execution.id,
+      status: execution.status,
+      finished: execution.finished,
+      startedAt: execution.startedAt,
+      stoppedAt: execution.stoppedAt,
+      workflowId: execution.workflowId,
+    };
+    if (topError) {
+      result.error = { message: topError.message, name: topError.name, description: topError.description, node: failedNodeName };
+    }
+
+    const runData = execution.data?.resultData?.runData;
+    if (options.includeData && runData) {
+      const onlyFailedNode = options.onlyFailedNode !== false;
+      let nodesToInclude: Set<string> | null = null;
+
+      if (onlyFailedNode && failedNodeName) {
+        nodesToInclude = new Set([failedNodeName]);
+        try {
+          const workflow = await this.getWorkflow(execution.workflowId);
+          for (const [sourceName, outputsByType] of Object.entries(workflow.connections || {})) {
+            for (const outputs of Object.values(outputsByType || {})) {
+              if (!Array.isArray(outputs)) continue;
+              for (const port of outputs) {
+                if (!Array.isArray(port)) continue;
+                for (const edge of port) {
+                  if (edge?.node === failedNodeName) nodesToInclude!.add(sourceName);
+                }
+              }
+            }
+          }
+        } catch {
+          // best-effort: if the workflow can't be fetched, report the failed node alone
+        }
+      }
+
+      result.runData = Object.entries(runData)
+        .filter(([nodeName]) => !nodesToInclude || nodesToInclude.has(nodeName))
+        .map(([nodeName, entries]) => this.trimRunDataEntry(nodeName, entries));
+    }
+
+    return result;
+  }
+
+  async retryExecution(id: string): Promise<{ success: boolean; id?: string }> {
+    const response = await this.api.post<N8nApiResponse<any>>(`/executions/${id}/retry`);
+    return { success: true, id: response.data?.data?.id };
+  }
+
+  async stopExecution(id: string): Promise<{ success: boolean }> {
+    await this.api.post(`/executions/${id}/stop`);
+    return { success: true };
+  }
+
   async deleteExecution(id: string): Promise<N8nExecutionDeleteResponse> {
     await this.api.delete(`/executions/${id}`);
     return { success: true };
+  }
+
+  /**
+   * Report which resource groups this n8n instance/license supports, so callers can
+   * stop guessing at community-vs-Enterprise gating (variables, projects, folders, ...).
+   * Tries the aggregate /discover endpoint first, falling back to read-only per-resource probes.
+   */
+  async discoverCapabilities(): Promise<DiscoverCapabilitiesResult> {
+    const capabilities: CapabilityReport[] = [];
+    try {
+      const response = await this.api.get('/discover');
+      if (response.data && typeof response.data === 'object') {
+        capabilities.push({ resource: 'discover', supported: true, detail: JSON.stringify(response.data).slice(0, 1000) });
+        return { baseUrl: this.baseUrl, capabilities };
+      }
+    } catch {
+      // /discover not present on this n8n version; fall back to probing individual resources
+    }
+
+    const probes: Array<{ resource: string; path: string }> = [
+      { resource: 'variables', path: '/variables?limit=1' },
+      { resource: 'projects', path: '/projects?limit=1' },
+      { resource: 'folders', path: '/folders?limit=1' },
+    ];
+    for (const probe of probes) {
+      try {
+        await this.api.get(probe.path);
+        capabilities.push({ resource: probe.resource, supported: true });
+      } catch (error: any) {
+        const status = error.response?.status;
+        capabilities.push({
+          resource: probe.resource,
+          supported: !(status === 403 || status === 404),
+          detail: status ? `HTTP ${status}` : error.message,
+        });
+      }
+    }
+    // source-control is POST-only (pull) with no safe read-only probe; report as unknown
+    // rather than issue a mutating request just to check availability.
+    capabilities.push({ resource: 'source-control', supported: false, detail: 'not probed (no read-only endpoint); check the n8n UI or /discover' });
+
+    return { baseUrl: this.baseUrl, capabilities };
+  }
+
+  /** Cheap connectivity + auth preflight — one request, no side effects. */
+  async healthCheck(): Promise<HealthCheckResult> {
+    try {
+      await this.api.get('/workflows?limit=1');
+      return { reachable: true, baseUrl: this.baseUrl, authOk: true };
+    } catch (error: any) {
+      const status = error.response?.status;
+      if (status === 401 || status === 403) {
+        return { reachable: true, baseUrl: this.baseUrl, authOk: false, detail: `HTTP ${status}: authentication rejected` };
+      }
+      return { reachable: false, baseUrl: this.baseUrl, authOk: false, detail: error.message };
+    }
   }
 
   async getWebhookUrls(workflowId: string | number, nodeId: string): Promise<N8nWebhookUrls> {

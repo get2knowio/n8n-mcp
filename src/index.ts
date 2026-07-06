@@ -5,8 +5,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
 import { logger, newCorrelationId, getLogLevel } from './logger.js';
-import { 
-  N8nConfig, 
+import {
+  N8nConfig,
   N8nWorkflow,
   N8nExecutionResponse,
   TransferRequest,
@@ -19,10 +19,13 @@ import {
   ValidationResult
 } from './types.js';
 import { success as jsonSuccess, error as jsonError } from './output.js';
+import { validateWorkflow, validateConnections, validateExpressions, WorkflowLike } from './workflow-validator.js';
+import { TemplatesClient } from './templates-client.js';
 
 export class N8nMcpServer {
   private server: Server;
   private n8nClient!: N8nClient;
+  private templatesClient: TemplatesClient = new TemplatesClient();
   // In-memory alias mapping to bridge numeric tool IDs with n8n string IDs
   private workflowIdAliasToString: Map<number, string> = new Map();
   private workflowIdStringToAlias: Map<string, number> = new Map();
@@ -192,8 +195,8 @@ export class N8nMcpServer {
           { name: 'transfer_workflow', description: 'Transfer an n8n workflow to a different project or owner', inputSchema: { type: 'object', properties: { id: { oneOf: [{ type: 'string' }, { type: 'number' }] }, projectId: { type: 'string' }, newOwnerId: { type: 'string' } }, required: ['id'] } },
           { name: 'transfer_credential', description: 'Transfer an n8n credential to a different project or owner', inputSchema: { type: 'object', properties: { id: { oneOf: [{ type: 'string' }, { type: 'number' }] }, projectId: { type: 'string' }, newOwnerId: { type: 'string' } }, required: ['id'] } },
 
-          { name: 'list_executions', description: 'List n8n workflow executions', inputSchema: { type: 'object', properties: { limit: { type: 'number' }, cursor: { type: 'string' }, workflowId: { type: 'string' } } } },
-          { name: 'get_execution', description: 'Get a specific n8n execution by ID', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
+          { name: 'list_executions', description: 'List n8n workflow executions', inputSchema: { type: 'object', properties: { limit: { type: 'number' }, cursor: { type: 'string' }, workflowId: { type: 'string' }, status: { type: 'string', description: "Filter by status, e.g. 'error', 'success', 'running'" } } } },
+          { name: 'get_execution', description: 'Get a specific n8n execution by ID', inputSchema: { type: 'object', properties: { id: { type: 'string' }, includeData: { type: 'boolean', description: 'Fetch per-node run data, trimmed to the failed node and its immediate upstream neighbors' }, onlyFailedNode: { type: 'boolean', description: 'When includeData is set, restrict run data to the failed node + immediate upstream (default true)' } }, required: ['id'] } },
           { name: 'delete_execution', description: 'Delete an n8n execution', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
 
           { name: 'webhook_urls', description: 'Get webhook URLs for a webhook node in a workflow', inputSchema: { type: 'object', properties: { workflowId: { oneOf: [{ type: 'string' }, { type: 'number' }] }, nodeId: { type: 'string' } }, required: ['workflowId', 'nodeId'] } },
@@ -213,6 +216,24 @@ export class N8nMcpServer {
           { name: 'connect_nodes', description: 'Connect two nodes in an n8n workflow', inputSchema: { type: 'object', properties: { workflowId: { oneOf: [{ type: 'string' }, { type: 'number' }] }, from: { type: 'object', properties: { nodeId: { type: 'string' }, outputIndex: { type: 'number' } }, required: ['nodeId'] }, to: { type: 'object', properties: { nodeId: { type: 'string' }, inputIndex: { type: 'number' } }, required: ['nodeId'] } }, required: ['workflowId', 'from', 'to'] } },
           { name: 'delete_node', description: 'Delete a node from an n8n workflow', inputSchema: { type: 'object', properties: { workflowId: { oneOf: [{ type: 'string' }, { type: 'number' }] }, nodeId: { type: 'string' } }, required: ['workflowId', 'nodeId'] } },
           { name: 'set_node_position', description: 'Set the position of a node in an n8n workflow', inputSchema: { type: 'object', properties: { workflowId: { oneOf: [{ type: 'string' }, { type: 'number' }] }, nodeId: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' } }, required: ['workflowId', 'nodeId', 'x', 'y'] } },
+
+          // Whole-workflow validation (local, no API dependency)
+          { name: 'validate_workflow', description: 'Validate a full workflow JSON (structure, connections, expressions, per-node config) before creating or updating it', inputSchema: { type: 'object', properties: { name: { type: 'string' }, nodes: { type: 'array', items: { type: 'object' } }, connections: { type: 'object' } }, required: ['nodes', 'connections'] } },
+          { name: 'validate_connections', description: 'Validate only the connections graph of a workflow: dangling node references and array-of-arrays nesting', inputSchema: { type: 'object', properties: { nodes: { type: 'array', items: { type: 'object' } }, connections: { type: 'object' } }, required: ['nodes', 'connections'] } },
+          { name: 'validate_expressions', description: "Validate n8n expressions embedded in a workflow's node parameters: missing '=' prefix, unbalanced braces, unknown node references", inputSchema: { type: 'object', properties: { nodes: { type: 'array', items: { type: 'object' } }, connections: { type: 'object' } }, required: ['nodes', 'connections'] } },
+
+          // Templates (public, unauthenticated api.n8n.io)
+          { name: 'search_templates', description: 'Search the public n8n template library for example workflows', inputSchema: { type: 'object', properties: { query: { type: 'string' }, nodeTypes: { type: 'array', items: { type: 'string' } }, category: { type: 'string' }, limit: { type: 'number' } } } },
+          { name: 'get_template', description: 'Fetch an importable workflow JSON for a specific template by ID', inputSchema: { type: 'object', properties: { id: { oneOf: [{ type: 'string' }, { type: 'number' }] } }, required: ['id'] } },
+
+          // Execution debugging
+          { name: 'list_error_executions', description: 'List recent failed executions, optionally scoped to a workflow', inputSchema: { type: 'object', properties: { workflowId: { type: 'string' }, limit: { type: 'number' }, cursor: { type: 'string' } } } },
+          { name: 'retry_execution', description: 'Retry a failed n8n execution', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
+          { name: 'stop_execution', description: 'Stop a running n8n execution', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
+
+          // Capability discovery
+          { name: 'discover_capabilities', description: 'Report which resource groups this n8n instance/license supports (variables, projects, folders, source-control)', inputSchema: { type: 'object', properties: {} } },
+          { name: 'health_check', description: 'Cheap connectivity and authentication preflight against the configured n8n instance', inputSchema: { type: 'object', properties: {} } },
         ],
       };
     });
@@ -286,11 +307,17 @@ export class N8nMcpServer {
             return await this.handleDeleteVariable(request.params.arguments as { id: string });
 
           case 'list_executions':
-            return await this.handleListExecutions(request.params.arguments as { limit?: number; cursor?: string; workflowId?: string });
+            return await this.handleListExecutions(request.params.arguments as { limit?: number; cursor?: string; workflowId?: string; status?: string });
           case 'get_execution':
-            return await this.handleGetExecution(request.params.arguments as { id: string });
+            return await this.handleGetExecution(request.params.arguments as { id: string; includeData?: boolean; onlyFailedNode?: boolean });
           case 'delete_execution':
             return await this.handleDeleteExecution(request.params.arguments as { id: string });
+          case 'list_error_executions':
+            return await this.handleListErrorExecutions(request.params.arguments as { workflowId?: string; limit?: number; cursor?: string });
+          case 'retry_execution':
+            return await this.handleRetryExecution(request.params.arguments as { id: string });
+          case 'stop_execution':
+            return await this.handleStopExecution(request.params.arguments as { id: string });
 
           case 'webhook_urls':
             return await this.handleWebhookUrls(request.params.arguments as { workflowId: string | number; nodeId: string });
@@ -322,6 +349,23 @@ export class N8nMcpServer {
             return await this.handleDeleteNode(request.params.arguments as unknown as DeleteNodeRequest);
           case 'set_node_position':
             return await this.handleSetNodePosition(request.params.arguments as unknown as SetNodePositionRequest);
+
+          case 'validate_workflow':
+            return await this.handleValidateWorkflow(request.params.arguments as unknown as WorkflowLike);
+          case 'validate_connections':
+            return await this.handleValidateConnections(request.params.arguments as unknown as WorkflowLike);
+          case 'validate_expressions':
+            return await this.handleValidateExpressions(request.params.arguments as unknown as WorkflowLike);
+
+          case 'search_templates':
+            return await this.handleSearchTemplates(request.params.arguments as { query?: string; nodeTypes?: string[]; category?: string; limit?: number });
+          case 'get_template':
+            return await this.handleGetTemplate(request.params.arguments as { id: string | number });
+
+          case 'discover_capabilities':
+            return await this.handleDiscoverCapabilities();
+          case 'health_check':
+            return await this.handleHealthCheck();
 
           default:
             throw new Error(`Unknown tool: ${request.params.name}`);
@@ -480,12 +524,19 @@ export class N8nMcpServer {
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess({ id: args.id }), null, 2) }] };
   }
 
-  private async handleListExecutions(args: { limit?: number; cursor?: string; workflowId?: string }) {
+  private async handleListExecutions(args: { limit?: number; cursor?: string; workflowId?: string; status?: string }) {
     const executions = await this.n8nClient.listExecutions(args);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(executions), null, 2) }] };
   }
 
-  private async handleGetExecution(args: { id: string }) {
+  private async handleGetExecution(args: { id: string; includeData?: boolean; onlyFailedNode?: boolean }) {
+    if (args.includeData) {
+      const details = await this.n8nClient.getExecutionDetails(args.id, {
+        includeData: true,
+        onlyFailedNode: args.onlyFailedNode,
+      });
+      return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(details), null, 2) }] };
+    }
     const execution = await this.n8nClient.getExecution(args.id);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(execution), null, 2) }] };
   }
@@ -493,6 +544,21 @@ export class N8nMcpServer {
   private async handleDeleteExecution(args: { id: string }) {
     await this.n8nClient.deleteExecution(args.id);
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess({ id: args.id }), null, 2) }] };
+  }
+
+  private async handleListErrorExecutions(args: { workflowId?: string; limit?: number; cursor?: string }) {
+    const executions = await this.n8nClient.listExecutions({ ...args, status: 'error' });
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(executions), null, 2) }] };
+  }
+
+  private async handleRetryExecution(args: { id: string }) {
+    const result = await this.n8nClient.retryExecution(args.id);
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
+  }
+
+  private async handleStopExecution(args: { id: string }) {
+    const result = await this.n8nClient.stopExecution(args.id);
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
   }
 
   private async handleWebhookUrls(args: { workflowId: string | number; nodeId: string }) {
@@ -711,6 +777,41 @@ export class N8nMcpServer {
       args.credentials
     );
 
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
+  }
+
+  private async handleValidateWorkflow(args: WorkflowLike) {
+    const result = validateWorkflow(args);
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
+  }
+
+  private async handleValidateConnections(args: WorkflowLike) {
+    const issues = validateConnections(args);
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess({ valid: issues.every((i) => i.severity !== 'error'), issues }), null, 2) }] };
+  }
+
+  private async handleValidateExpressions(args: WorkflowLike) {
+    const issues = validateExpressions(args);
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess({ valid: issues.every((i) => i.severity !== 'error'), issues }), null, 2) }] };
+  }
+
+  private async handleSearchTemplates(args: { query?: string; nodeTypes?: string[]; category?: string; limit?: number }) {
+    const result = await this.templatesClient.searchTemplates(args);
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
+  }
+
+  private async handleGetTemplate(args: { id: string | number }) {
+    const result = await this.templatesClient.getTemplate(args.id);
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
+  }
+
+  private async handleDiscoverCapabilities() {
+    const result = await this.n8nClient.discoverCapabilities();
+    return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
+  }
+
+  private async handleHealthCheck() {
+    const result = await this.n8nClient.healthCheck();
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
   }
 
