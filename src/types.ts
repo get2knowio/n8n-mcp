@@ -431,3 +431,89 @@ export interface FallbackOperationResult {
   successfulEndpoint?: string;
   hint?: string;
 }
+
+// Whole-workflow validation (src/workflow-validator.ts)
+
+export interface WorkflowValidationIssue {
+  severity: 'error' | 'warning';
+  code: string;
+  message: string;
+  node?: string;
+  path?: string;
+}
+
+export interface WorkflowValidationResult {
+  valid: boolean;
+  issues: WorkflowValidationIssue[];
+}
+
+// Templates (src/templates-client.ts) — https://api.n8n.io/templates
+
+export interface N8nTemplateSummary {
+  id: number;
+  name: string;
+  description?: string;
+  totalViews?: number;
+  nodes?: Array<{ name?: string; icon?: string; displayName?: string }>;
+}
+
+export interface N8nTemplateSearchResponse {
+  totalWorkflows: number;
+  workflows: N8nTemplateSummary[];
+}
+
+export interface N8nTemplateWorkflow {
+  id: number;
+  name: string;
+  description?: string;
+  workflow: {
+    nodes: N8nNode[];
+    connections: N8nConnections;
+  };
+}
+
+// Execution debugging
+
+export interface GetExecutionOptions {
+  includeData?: boolean;
+  onlyFailedNode?: boolean;
+}
+
+export interface TrimmedRunDataEntry {
+  node: string;
+  status: 'success' | 'error';
+  error?: { message?: string; name?: string; description?: string };
+  itemCount?: number;
+  dataPreview?: string;
+}
+
+export interface GetExecutionResult {
+  id: string;
+  status: N8nExecution['status'];
+  finished: boolean;
+  startedAt: string;
+  stoppedAt?: string;
+  workflowId: string;
+  error?: { message?: string; name?: string; description?: string; node?: string };
+  runData?: TrimmedRunDataEntry[];
+}
+
+// Capability discovery
+
+export interface CapabilityReport {
+  resource: string;
+  supported: boolean;
+  detail?: string;
+}
+
+export interface DiscoverCapabilitiesResult {
+  baseUrl: string;
+  capabilities: CapabilityReport[];
+}
+
+export interface HealthCheckResult {
+  reachable: boolean;
+  baseUrl: string;
+  authOk: boolean;
+  detail?: string;
+}

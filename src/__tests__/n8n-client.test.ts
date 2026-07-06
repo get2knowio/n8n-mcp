@@ -805,6 +805,137 @@ describe('N8nClient', () => {
     });
   });
 
+  describe('retryExecution', () => {
+    it('should retry an execution and return its new id', async () => {
+      mockApi.post.mockResolvedValue({ data: { data: { id: 'exec_retry_1' } } });
+      const result = await client.retryExecution('exec_123');
+      expect(mockApi.post).toHaveBeenCalledWith('/executions/exec_123/retry');
+      expect(result).toEqual({ success: true, id: 'exec_retry_1' });
+    });
+  });
+
+  describe('stopExecution', () => {
+    it('should stop a running execution', async () => {
+      mockApi.post.mockResolvedValue({ data: {} });
+      const result = await client.stopExecution('exec_123');
+      expect(mockApi.post).toHaveBeenCalledWith('/executions/exec_123/stop');
+      expect(result).toEqual({ success: true });
+    });
+  });
+
+  describe('listExecutions with status filter', () => {
+    it('should pass status through as a query param', async () => {
+      mockApi.get.mockResolvedValue({ data: { data: [] } });
+      await client.listExecutions({ status: 'error', limit: 5 });
+      expect(mockApi.get).toHaveBeenCalledWith('/executions?limit=5&status=error');
+    });
+  });
+
+  describe('getExecutionDetails', () => {
+    const failingExecution: N8nExecution = {
+      id: 'exec_fail',
+      finished: true,
+      mode: 'manual',
+      startedAt: '2023-01-01T00:00:00.000Z',
+      workflowId: 'wf_1',
+      status: 'failed',
+      data: {
+        resultData: {
+          lastNodeExecuted: 'HTTP Request',
+          error: { message: 'Request failed with status 500', name: 'NodeApiError' },
+          runData: {
+            'Webhook': [{ data: { main: [[{ json: { ok: true } }]] } }],
+            'HTTP Request': [{ error: { message: 'Request failed with status 500', name: 'NodeApiError' } }],
+            'Unrelated Node': [{ data: { main: [[{ json: { noise: true } }]] } }],
+          },
+        },
+      },
+    };
+
+    const upstreamWorkflow: N8nWorkflow = {
+      id: 'wf_1',
+      name: 'Failing workflow',
+      nodes: [],
+      connections: {
+        Webhook: { main: [[{ node: 'HTTP Request', type: 'main', index: 0 }]] },
+        'Unrelated Node': { main: [[{ node: 'Some Other Node', type: 'main', index: 0 }]] },
+      },
+    };
+
+    it('returns just status/error without runData when includeData is not set', async () => {
+      mockApi.get.mockResolvedValue({ data: { data: failingExecution } });
+      const result = await client.getExecutionDetails('exec_fail');
+      expect(mockApi.get).toHaveBeenCalledWith('/executions/exec_fail');
+      expect(result.runData).toBeUndefined();
+      expect(result.error?.message).toBe('Request failed with status 500');
+      expect(result.error?.node).toBe('HTTP Request');
+    });
+
+    it('trims runData to the failed node plus its immediate upstream neighbors', async () => {
+      mockApi.get.mockImplementation((url: string) => {
+        if (url.includes('/workflows/')) return Promise.resolve({ data: { data: upstreamWorkflow } });
+        return Promise.resolve({ data: { data: failingExecution } });
+      });
+
+      const result = await client.getExecutionDetails('exec_fail', { includeData: true });
+
+      expect(mockApi.get).toHaveBeenCalledWith('/executions/exec_fail?includeData=true');
+      const nodeNames = result.runData!.map((r) => r.node).sort();
+      expect(nodeNames).toEqual(['HTTP Request', 'Webhook']);
+      expect(result.runData!.find((r) => r.node === 'HTTP Request')?.status).toBe('error');
+      expect(result.runData!.find((r) => r.node === 'Webhook')?.status).toBe('success');
+    });
+
+    it('includes every node when onlyFailedNode is false', async () => {
+      mockApi.get.mockResolvedValue({ data: { data: failingExecution } });
+      const result = await client.getExecutionDetails('exec_fail', { includeData: true, onlyFailedNode: false });
+      const nodeNames = result.runData!.map((r) => r.node).sort();
+      expect(nodeNames).toEqual(['HTTP Request', 'Unrelated Node', 'Webhook']);
+    });
+  });
+
+  describe('discoverCapabilities', () => {
+    it('uses /discover when the endpoint is present', async () => {
+      mockApi.get.mockResolvedValue({ data: { variables: true, projects: false } });
+      const result = await client.discoverCapabilities();
+      expect(mockApi.get).toHaveBeenCalledWith('/discover');
+      expect(result.capabilities.find((c) => c.resource === 'discover')?.supported).toBe(true);
+    });
+
+    it('falls back to per-resource probes when /discover is absent', async () => {
+      mockApi.get.mockImplementation((url: string) => {
+        if (url === '/discover') return Promise.reject({ response: { status: 404 } });
+        if (url.startsWith('/variables')) return Promise.reject({ response: { status: 403 } });
+        return Promise.resolve({ data: {} });
+      });
+      const result = await client.discoverCapabilities();
+      expect(result.capabilities.find((c) => c.resource === 'variables')?.supported).toBe(false);
+      expect(result.capabilities.find((c) => c.resource === 'projects')?.supported).toBe(true);
+      expect(result.capabilities.find((c) => c.resource === 'source-control')?.supported).toBe(false);
+    });
+  });
+
+  describe('healthCheck', () => {
+    it('reports reachable + authOk on success', async () => {
+      mockApi.get.mockResolvedValue({ data: { data: [] } });
+      const result = await client.healthCheck();
+      expect(result).toEqual({ reachable: true, baseUrl: 'http://test-n8n.local:5678', authOk: true });
+    });
+
+    it('reports reachable but auth-rejected on 401', async () => {
+      mockApi.get.mockRejectedValue({ response: { status: 401 }, message: 'Unauthorized' });
+      const result = await client.healthCheck();
+      expect(result.reachable).toBe(true);
+      expect(result.authOk).toBe(false);
+    });
+
+    it('reports unreachable on network error', async () => {
+      mockApi.get.mockRejectedValue({ message: 'connect ECONNREFUSED' });
+      const result = await client.healthCheck();
+      expect(result.reachable).toBe(false);
+    });
+  });
+
   describe('getWebhookUrls', () => {
     const mockWorkflowWithWebhook: N8nWorkflow = {
       id: 1,
