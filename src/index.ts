@@ -2,6 +2,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { N8nClient } from './n8n-client.js';
 import { logger, newCorrelationId, getLogLevel } from './logger.js';
@@ -815,15 +816,20 @@ export class N8nMcpServer {
     return { content: [{ type: 'text', text: JSON.stringify(jsonSuccess(result), null, 2) }] };
   }
 
-  async run() {
-    const transport = new StdioServerTransport();
+  /**
+   * Connect this server to an arbitrary MCP transport (stdio, Streamable HTTP, …).
+   * Each connected transport should be paired with its own N8nMcpServer instance so
+   * per-instance state (workflow id aliases) stays isolated per client session.
+   */
+  async connect(transport: Transport) {
     await this.server.connect(transport);
+  }
+
+  async run() {
+    await this.connect(new StdioServerTransport());
     logger.info('N8n MCP server running on stdio');
   }
 }
 
-const server = new N8nMcpServer();
-server.run().catch((error) => {
-  logger.error('Server failed', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
-  process.exit(1);
-});
+// Note: this module has no side effects on import — it is a library. The stdio server
+// is started from the `main.ts` entrypoint (or `cli.ts` when invoked with no args).

@@ -51,7 +51,7 @@ process.env.MCP_ENABLE_SOURCE_MAPS = process.env.MCP_ENABLE_SOURCE_MAPS || '1';
 process.env.MCP_DEBUG = process.env.MCP_DEBUG || 'debug';
 
 const CLI = resolve(__dirname, '../../dist/cli.js');
-const MCP_SERVER = resolve(__dirname, '../../dist/index.js');
+const MCP_SERVER = resolve(__dirname, '../../dist/main.js');
 const EXAMPLE_WORKFLOW = resolve(__dirname, '../../examples/example-workflow.json');
 
 async function runCli(args, { timeoutMs = 20000 } = {}) {
