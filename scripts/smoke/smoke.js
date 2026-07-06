@@ -112,7 +112,9 @@ function looksLikeVariablesLicenseError(text) {
   return lower.includes('license') && (lower.includes('feat:variables') || lower.includes('variables')) && (lower.includes('403') || lower.includes('forbidden'));
 }
 
-// Minimal MCP stdio client using LSP-style Content-Length frames
+// Minimal MCP stdio client using newline-delimited JSON — the framing the MCP
+// SDK's StdioServerTransport actually speaks. (It is NOT LSP-style Content-Length
+// framing; using that makes the handshake hang so every MCP step silently skips.)
 function createMcpClient() {
   const childEnv = { ...process.env };
   delete childEnv.N8N_USERNAME;
@@ -122,47 +124,35 @@ function createMcpClient() {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
-  let buffer = Buffer.alloc(0);
+  let buffer = '';
   const pending = new Map();
   let nextId = 1;
   let serverReady = false;
   let stderrBuf = '';
 
   function writeMessage(obj) {
-    const json = Buffer.from(JSON.stringify(obj), 'utf8');
-    const header = Buffer.from(`Content-Length: ${json.length}\r\n\r\n`, 'utf8');
-    child.stdin.write(header);
-    child.stdin.write(json);
+    // One JSON message per line — the MCP stdio wire format.
+    child.stdin.write(JSON.stringify(obj) + '\n');
   }
 
   child.stdout.on('data', (chunk) => {
-    buffer = Buffer.concat([buffer, chunk]);
-    // Parse all complete frames
-    while (true) {
-      const headerEnd = buffer.indexOf('\r\n\r\n');
-      if (headerEnd === -1) break;
-      const header = buffer.slice(0, headerEnd).toString('utf8');
-      const match = /Content-Length: (\d+)/i.exec(header);
-      if (!match) {
-        // Drop malformed header
-        buffer = buffer.slice(headerEnd + 4);
-        continue;
-      }
-      const length = parseInt(match[1], 10);
-      const start = headerEnd + 4;
-      const end = start + length;
-      if (buffer.length < end) break; // wait for rest of body
-      const body = buffer.slice(start, end).toString('utf8');
-      buffer = buffer.slice(end);
+    buffer += String(chunk);
+    // Each complete line is one JSON-RPC message.
+    let nl;
+    while ((nl = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      let msg;
       try {
-        const msg = JSON.parse(body);
-        if (msg.id && pending.has(msg.id)) {
-          const { resolve } = pending.get(msg.id);
-          pending.delete(msg.id);
-          resolve(msg);
-        }
+        msg = JSON.parse(line);
       } catch {
-        // ignore parse errors
+        continue; // ignore non-JSON lines
+      }
+      if (msg.id && pending.has(msg.id)) {
+        const { resolve } = pending.get(msg.id);
+        pending.delete(msg.id);
+        resolve(msg);
       }
     }
   });
@@ -206,6 +196,9 @@ function createMcpClient() {
       capabilities: {},
       clientInfo: { name: 'n8n-mcp-smoke', version: '0.0.0' },
     });
+    // Per the MCP lifecycle, the client must confirm initialization before the
+    // server will service further requests.
+    writeMessage({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} });
     return res;
   }
 
@@ -473,8 +466,9 @@ async function main() {
         try {
           await mcp.initialize();
           const res = await mcp.listTools();
-          const payload = JSON.parse(res?.result?.content?.[0]?.text || '{}');
-          if (!payload?.ok || !Array.isArray(payload.data?.tools)) throw new Error('MCP tools/list bad shape');
+          // Standard MCP tools/list returns the tool descriptors at result.tools.
+          const tools = res?.result?.tools;
+          if (!Array.isArray(tools) || tools.length === 0) throw new Error('MCP tools/list bad shape');
         } catch (e) {
           mcpSupported = false;
           console.log('[INFO] MCP server not available; skipping MCP steps.');
