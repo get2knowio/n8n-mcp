@@ -2,7 +2,6 @@
 
 [![CI/CD](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml)
 [![Release](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml)
-[![Coverage Status](https://coveralls.io/repos/github/get2knowio/n8n-mcp/badge.svg?branch=main)](https://coveralls.io/github/get2knowio/n8n-mcp?branch=main)
 [![npm version](https://img.shields.io/npm/v/@get2knowio/n8n-mcp.svg)](https://www.npmjs.com/package/@get2knowio/n8n-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -779,7 +778,7 @@ This triggers the Release workflow which builds, tests, publishes to npm, and th
 
 ## Coverage Reporting
 
-Coverage is collected with Jest and uploaded in CI via Coveralls. See [CONTRIBUTING.md](./CONTRIBUTING.md) for local coverage commands.
+Coverage is collected with Jest and enforced against the thresholds in `jest.config.js` (CI runs `npm run test:coverage`). See [CONTRIBUTING.md](./CONTRIBUTING.md) for local coverage commands.
 
 To create a new release:
 1. Update the version in `package.json`

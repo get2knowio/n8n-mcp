@@ -89,10 +89,10 @@ npm ci          # Clean install (CI uses this, not npm install)
 npm run lint    # TypeScript type checking
 npm run build   # Build project
 npm run test    # Run test suite
-npm run test:coverage  # Produce coverage/lcov.info (uploaded to Coveralls in CI)
+npm run test:coverage  # Produce coverage/lcov.info and enforce jest.config.js thresholds
 ```
 
-**CI Pipeline Requirements**: The project tests against Node.js versions 18.x, 20.x, and 22.x. Current development uses Node.js v20.19.4. Coverage is uploaded to Coveralls (parallel uploads with a finalize step).
+**CI Pipeline Requirements**: The project tests against Node.js versions 18.x, 20.x, and 22.x. Current development uses Node.js v20.19.4. Coverage is collected via `npm run test:coverage` and enforced against the thresholds in `jest.config.js`.
 
 ## Pull Request Hygiene: Auto-close Issues
 
@@ -204,7 +204,7 @@ Release notes formatting rules:
 - Example body:
 	- Publish to npm
 	- Post-publish verify (install, ESM import, CLI)
-	- CI: Coveralls coverage upload (parallel + finalize)
+	- CI: lint, tests, and coverage across Node 18/20/22
 
 ## Troubleshooting
 
