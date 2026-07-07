@@ -2,7 +2,6 @@
 
 [![CI/CD](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/ci.yml)
 [![Release](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/get2knowio/n8n-mcp/actions/workflows/release.yml)
-[![Coverage Status](https://coveralls.io/repos/github/get2knowio/n8n-mcp/badge.svg?branch=main)](https://coveralls.io/github/get2knowio/n8n-mcp?branch=main)
 [![npm version](https://img.shields.io/npm/v/@get2knowio/n8n-mcp.svg)](https://www.npmjs.com/package/@get2knowio/n8n-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -138,6 +137,52 @@ npx @get2knowio/n8n-mcp
 ```
 
 This starts the MCP server on stdio for integration with AI agents. Configure access via environment variables (see Configuration).
+
+#### Streamable HTTP transport
+
+Instead of stdio, the same server can run as a long-lived **HTTP** service (MCP
+Streamable HTTP transport) — useful for hosting it behind a reverse proxy or sharing it
+across clients:
+
+```bash
+# Start the HTTP server (flag or env)
+n8n-mcp --http
+# equivalently:
+MCP_TRANSPORT=http n8n-mcp
+```
+
+It is **single-tenant**: every session uses the same `N8N_BASE_URL` / `N8N_API_KEY` (or
+basic-auth) from the environment, exactly like the stdio server.
+
+HTTP-specific configuration (all optional):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MCP_HTTP_PORT` (or `PORT`) | `3000` | Port to bind. |
+| `MCP_HTTP_HOST` | `127.0.0.1` | Interface to bind. **Loopback by default** — set to `0.0.0.0` to expose. |
+| `MCP_HTTP_PATH` | `/mcp` | MCP endpoint path. |
+| `MCP_HTTP_TOKEN` | _(unset)_ | When set, every request must send `Authorization: Bearer <token>`. When unset, **no auth is enforced** — only safe on a trusted loopback/network. |
+
+Endpoints: the MCP endpoint is `POST/GET/DELETE <MCP_HTTP_PATH>` (Streamable HTTP, JSON
+responses, `mcp-session-id` header per session). A `GET /healthz` liveness probe returns
+`{"ok":true}` and is intentionally unauthenticated.
+
+> ⚠️ The default bind is loopback and there is no auth unless you set `MCP_HTTP_TOKEN`.
+> Before exposing the port (`MCP_HTTP_HOST=0.0.0.0` or via a proxy), set a token.
+
+Example MCP client config (HTTP):
+
+```json
+{
+  "servers": {
+    "n8n": {
+      "type": "http",
+      "url": "http://127.0.0.1:3000/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}
+```
 
 ### 2) As a CLI Tool
 
@@ -733,7 +778,7 @@ This triggers the Release workflow which builds, tests, publishes to npm, and th
 
 ## Coverage Reporting
 
-Coverage is collected with Jest and uploaded in CI via Coveralls. See [CONTRIBUTING.md](./CONTRIBUTING.md) for local coverage commands.
+Coverage is collected with Jest and enforced against the thresholds in `jest.config.js` (CI runs `npm run test:coverage`). See [CONTRIBUTING.md](./CONTRIBUTING.md) for local coverage commands.
 
 To create a new release:
 1. Update the version in `package.json`
